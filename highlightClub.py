@@ -33,10 +33,10 @@ def find_text_positions_and_highlight(pdf_path, search_text, output_path):
                 for text_line in element:
                     line_text = text_line.get_text()
                     if search_text in line_text:
-                        # Get the line bounding box
-                        line_bbox = get_line_bbox(text_line)
+                        # Get the full printable bounding box for the line
+                        line_bbox = get_printable_area_bbox(text_line)
                         
-                        # Draw a rectangle to highlight the line
+                        # Draw a rectangle to highlight the entire line's printable area
                         highlight_line(c, line_bbox)
                         page_found = True
         
@@ -59,15 +59,15 @@ def find_text_positions_and_highlight(pdf_path, search_text, output_path):
     print(f"Saved highlighted PDF to {output_path}.")
 
 
-def get_line_bbox(text_line):
+def get_printable_area_bbox(text_line):
     """
-    Calculates the bounding box for an entire text line.
+    Calculates the bounding box for the full printable area of a text line.
 
     Args:
         text_line (LTTextLine): The text line to calculate the bounding box for.
 
     Returns:
-        tuple: The bounding box (x0, y0, x1, y1) of the text line.
+        tuple: The bounding box (x0, y0, x1, y1) for the printable area of the line.
     """
     line_start_x, line_start_y = float('inf'), float('inf')
     line_end_x, line_end_y = float('-inf'), float('-inf')
@@ -79,6 +79,10 @@ def get_line_bbox(text_line):
             line_start_y = min(line_start_y, y0)
             line_end_x = max(line_end_x, x1)
             line_end_y = max(line_end_y, y1)
+    
+    # Expand bounding box to span the entire printable area of the line
+    line_start_x = 0  # Left margin of the printable area
+    line_end_x = text_line.width  # Right margin of the printable area
     
     return line_start_x, line_start_y, line_end_x, line_end_y
 
