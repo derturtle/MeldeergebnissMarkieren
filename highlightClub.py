@@ -1,8 +1,7 @@
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
-from reportlab.pdfgen import canvas
 from PyPDF2 import PdfReader, PdfWriter
-
+from PyPDF2.generic import NameObject, DictionaryObject, ArrayObject, FloatObject
 
 def find_text_positions_and_highlight(pdf_path, search_text, output_path):
     """
@@ -13,21 +12,15 @@ def find_text_positions_and_highlight(pdf_path, search_text, output_path):
         search_text (str): The word to search for in the PDF.
         output_path (str): Path to save the output PDF with highlights.
     """
-    # Open the original PDF
+    # Read the PDF
     reader = PdfReader(pdf_path)
     writer = PdfWriter()
-    
-    # Temporary overlay file for highlights
-    overlay_path = "overlay.pdf"
-    
+
     # Loop through each page in the PDF
     for page_number, page_layout in enumerate(extract_pages(pdf_path), start=0):
+        page = reader.pages[page_number]
         page_found = False
-        
-        # Create a canvas for drawing highlights
-        c = canvas.Canvas(overlay_path, pagesize=(reader.pages[page_number].mediabox.width,
-                                                  reader.pages[page_number].mediabox.height))
-        
+
         for element in page_layout:
             if isinstance(element, LTTextContainer):
                 for text_line in element:
@@ -35,29 +28,20 @@ def find_text_positions_and_highlight(pdf_path, search_text, output_path):
                     if search_text in line_text:
                         # Get the full printable bounding box for the line
                         line_bbox = get_printable_area_bbox(text_line)
-                        
-                        # Draw a rectangle to highlight the entire line's printable area
-                        highlight_line(c, line_bbox)
+
+                        # Add a highlight annotation to the PDF
+                        add_highlight_annotation(page, line_bbox)
                         page_found = True
-        
-        # Save the overlay for this page
-        c.showPage()
-        c.save()
-        
-        # Merge the overlay with the original page
-        overlay_reader = PdfReader(overlay_path)
-        page = reader.pages[page_number]
-        page.merge_page(overlay_reader.pages[0])
-        writer.add_page(page)
-        
+
         if page_found:
             print(f"Highlighted line containing '{search_text}' on page {page_number + 1}.")
-    
-    # Write the new PDF
+
+        writer.add_page(page)
+
+    # Write the modified PDF
     with open(output_path, "wb") as f:
         writer.write(f)
     print(f"Saved highlighted PDF to {output_path}.")
-
 
 def get_printable_area_bbox(text_line):
     """
@@ -71,7 +55,7 @@ def get_printable_area_bbox(text_line):
     """
     line_start_x, line_start_y = float('inf'), float('inf')
     line_end_x, line_end_y = float('-inf'), float('-inf')
-    
+
     for character in text_line:
         if isinstance(character, LTChar):
             x0, y0, x1, y1 = character.bbox
@@ -79,29 +63,39 @@ def get_printable_area_bbox(text_line):
             line_start_y = min(line_start_y, y0)
             line_end_x = max(line_end_x, x1)
             line_end_y = max(line_end_y, y1)
-    
+
     # Expand bounding box to span the entire printable area of the line
     line_start_x = 0  # Left margin of the printable area
     line_end_x = text_line.width  # Right margin of the printable area
-    
+
     return line_start_x, line_start_y, line_end_x, line_end_y
 
-
-def highlight_line(canvas_obj, bbox, color=(1, 1, 0), opacity=0.3):
+def add_highlight_annotation(page, bbox):
     """
-    Highlights a line in the PDF using a semi-transparent rectangle.
+    Adds a highlight annotation to a PDF page.
 
     Args:
-        canvas_obj (canvas.Canvas): The canvas object to draw on.
+        page (PageObject): The PDF page to annotate.
         bbox (tuple): The bounding box (x0, y0, x1, y1) of the line.
-        color (tuple): RGB color of the highlight (default is yellow).
-        opacity (float): Opacity of the highlight (default is 0.3).
     """
     x0, y0, x1, y1 = bbox
-    canvas_obj.saveState()
-    canvas_obj.setFillColorRGB(*color, alpha=opacity)
-    canvas_obj.rect(x0, y0, x1 - x0, y1 - y0, fill=True, stroke=False)
-    canvas_obj.restoreState()
+
+    # Create a highlight annotation dictionary
+    highlight = DictionaryObject()
+    highlight.update({
+        NameObject("/Type"): NameObject("/Annot"),
+        NameObject("/Subtype"): NameObject("/Highlight"),
+        NameObject("/Rect"): ArrayObject([FloatObject(x0), FloatObject(y0), FloatObject(x1), FloatObject(y1)]),
+        NameObject("/QuadPoints"): ArrayObject([FloatObject(x0), FloatObject(y1), FloatObject(x1), FloatObject(y1),
+                                                FloatObject(x0), FloatObject(y0), FloatObject(x1), FloatObject(y0)]),
+        NameObject("/C"): ArrayObject([FloatObject(1), FloatObject(1), FloatObject(0)]),  # Yellow color
+        NameObject("/F"): FloatObject(4)  # Print the highlight annotation
+    })
+
+    # Add the annotation to the page
+    if "/Annots" not in page:
+        page[NameObject("/Annots")] = ArrayObject()
+    page[NameObject("/Annots")].append(highlight)
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
