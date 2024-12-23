@@ -1,7 +1,7 @@
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
 from PyPDF2 import PdfReader, PdfWriter
-from PyPDF2.generic import NameObject, DictionaryObject, ArrayObject, FloatObject
+from PyPDF2.generic import NameObject, DictionaryObject, ArrayObject, FloatObject, TextStringObject
 
 __COLORS: dict = {
     'red' : [FloatObject(1), FloatObject(0), FloatObject(0)], # Red color in RGB
@@ -125,7 +125,7 @@ def add_highlight_annotation(page, bbox):
             FloatObject(x1), FloatObject(y0-1)   # Bottom-right
         ]),
         NameObject("/C"): ArrayObject(__COLORS['yellow']),
-        NameObject("/F"): FloatObject(4)  # Annotation flags (4 = printable)
+        NameObject("/F"): FloatObject(6),  # Annotation flags (6 = printable, locked)
     })
 
     # Add the annotation to the page's annotations list
@@ -135,7 +135,7 @@ def add_highlight_annotation(page, bbox):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    find_text_positions_and_highlight('MN2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
+    find_text_positions_and_highlight('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
