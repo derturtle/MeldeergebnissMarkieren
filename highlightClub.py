@@ -3,7 +3,7 @@ import webcolors
 
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
-from PyPDF2 import PdfReader, PdfWriter
+from PyPDF2 import PdfReader, PdfWriter, PageObject
 from PyPDF2.generic import NameObject, DictionaryObject, ArrayObject, FloatObject, TextStringObject
 
 class __Occurrence:
@@ -17,7 +17,7 @@ class __Occurrence:
     def __str__(self):
         return fr'Page: {self.page} (x: {self.x}, y: {self.y}, width: {self.width}, height: {self.height})'
 
-def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: str, rgb_color: list, start_rect: float, end_rect: float):
+def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: str, rgb_color: list, start_rect: float, end_rect: float, offset_rect: int):
     """
     Finds the position of a specific word in a PDF, highlights its line, and saves a new PDF.
 
@@ -50,7 +50,7 @@ def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: st
                         occurrences.append(__Occurrence(page_number, line_bbox[0], line_bbox[1], line_bbox[2]-line_bbox[0], line_bbox[3]-line_bbox[1]))
 
                         # Add a highlight annotation for the line
-                        add_highlight_annotation(page, (page_layout.width * start_rect, line_bbox[1], page_layout.width * end_rect, line_bbox[3]), rgb_color)
+                        add_highlight_annotation(page, (page_layout.width * start_rect, line_bbox[1], page_layout.width * end_rect, line_bbox[3]), rgb_color, offset_rect)
         
         # Add the processed page to the writer
         writer.add_page(page)
@@ -86,13 +86,15 @@ def get_printable_area_bbox(text_line, page_layout):
 
     return line_start_x, line_start_y, line_end_x, line_end_y
 
-def add_highlight_annotation(page, bbox, rgb_color: list):
+def add_highlight_annotation(page: PageObject, bbox: tuple, rgb_color: list, offset_rect: int):
     """
     Adds a highlight annotation to a PDF page.
 
     Args:
         page (PageObject): The PDF page to annotate.
         bbox (tuple): The bounding box (x0, y0, x1, y1) of the line.
+        rgb_color (list): The rgb color of the annotation
+        offset_rect (int): Makes the rectangle bigger or smaller in px
     """
     # Unpack the bounding box coordinates
     x0, y0, x1, y1 = bbox
@@ -106,13 +108,13 @@ def add_highlight_annotation(page, bbox, rgb_color: list):
             FloatObject(x0), FloatObject(y0), FloatObject(x1), FloatObject(y1)
         ]),  # Rectangle defining the annotation area
         NameObject("/QuadPoints"): ArrayObject([
-#todo make configurable offset to expand text
             # Coordinates for the highlight area (quadrilateral points)
-            FloatObject(x0), FloatObject(y1+1),  # Top-left
-            FloatObject(x1), FloatObject(y1+1),  # Top-right
-            FloatObject(x0), FloatObject(y0-1),  # Bottom-left
-            FloatObject(x1), FloatObject(y0-1)   # Bottom-right
+            FloatObject(x0), FloatObject(y1+offset_rect),  # Top-left
+            FloatObject(x1), FloatObject(y1+offset_rect),  # Top-right
+            FloatObject(x0), FloatObject(y0-offset_rect),  # Bottom-left
+            FloatObject(x1), FloatObject(y0-offset_rect)   # Bottom-right
         ]),
+        # Set color of annotation
         NameObject("/C"): ArrayObject([FloatObject(rgb_color[0]),FloatObject(rgb_color[1]),FloatObject(rgb_color[2])]),
         NameObject("/F"): FloatObject(4),  # Annotation flags (4 = printable)
     })
@@ -122,7 +124,7 @@ def add_highlight_annotation(page, bbox, rgb_color: list):
         page[NameObject("/Annots")] = ArrayObject()
     page[NameObject("/Annots")].append(highlight)
 
-def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yellow', out_pdf = None, start_rect: int = 7, end_rect: int = 95):
+def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yellow', out_pdf = None, start_rect: int = 7, end_rect: int = 95, offset_rect: int = 1):
     rgb_color = []
     
     # Check input path
@@ -162,12 +164,12 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
     if out_pdf is None:
         out_pdf = in_pdf
     
-    find_text_positions_and_highlight(in_pdf, out_pdf, search_str, rgb_color, float(start_rect)/100.0, float(end_rect)/100.0)
+    find_text_positions_and_highlight(in_pdf, out_pdf, search_str, rgb_color, float(start_rect)/100.0, float(end_rect)/100.0, offset_rect)
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     #find_text_positions_and_highlight('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
-    highlight_in_pdf('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', out_pdf='Test.pdf')
+    highlight_in_pdf('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', out_pdf='Test.pdf', color='cyan')
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
