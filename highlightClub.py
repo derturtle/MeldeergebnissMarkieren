@@ -1,20 +1,10 @@
+import os.path
+import webcolors
+
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
 from PyPDF2 import PdfReader, PdfWriter
 from PyPDF2.generic import NameObject, DictionaryObject, ArrayObject, FloatObject, TextStringObject
-
-__COLORS: dict = {
-    'red' : [FloatObject(1), FloatObject(0), FloatObject(0)], # Red color in RGB
-    'orange' : [FloatObject(1), FloatObject(0.647), FloatObject(0)], # Red color in RGB
-    'green' : [FloatObject(0), FloatObject(1), FloatObject(0)],  # Green color in RGB
-    'blue' : [FloatObject(0), FloatObject(0), FloatObject(1)],  # blue color in RGB
-    'lightblue' : [FloatObject(173/255), FloatObject(216/255), FloatObject(230/255)],  # light blue color in RGB
-    'magenta' : [FloatObject(1), FloatObject(0), FloatObject(1)],  # Pink color in RGB
-    'yellow' : [FloatObject(1), FloatObject(1), FloatObject(0)],  # Yellow color in RGB
-    'cyan' : [FloatObject(0), FloatObject(1), FloatObject(1)],  # Cyan color in RGB
-    'lightgrey' : [FloatObject(0.827), FloatObject(0.827), FloatObject(0.827)],  # light grey color in RGB
-    'grey' : [FloatObject(0.745), FloatObject(0.745), FloatObject(0.745)],  # grey color in RGB
-}
 
 class __Occurrence:
     def __init__(self, page: int, x: float, y: float, width: float, height: float):
@@ -27,24 +17,24 @@ class __Occurrence:
     def __str__(self):
         return fr'Page: {self.page} (x: {self.x}, y: {self.y}, width: {self.width}, height: {self.height})'
 
-def find_text_positions_and_highlight(pdf_path, search_text, output_path):
+def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: str, rgb_color: list, start_rect: float, end_rect: float):
     """
     Finds the position of a specific word in a PDF, highlights its line, and saves a new PDF.
 
     Args:
-        pdf_path (str): Path to the PDF file.
+        in_pdf (str): Path to the PDF file.
         search_text (str): The word to search for in the PDF.
-        output_path (str): Path to save the output PDF with highlights.
+        out_pdf (str): Path to save the output PDF with highlights.
     """
     # create list for occurence
     occurrences: list = []
 
     # Read the input PDF using PyPDF2
-    reader = PdfReader(pdf_path)
+    reader = PdfReader(in_pdf)
     writer = PdfWriter()
 
     # Loop through each page in the PDF
-    for page_number, page_layout in enumerate(extract_pages(pdf_path), start=0):
+    for page_number, page_layout in enumerate(extract_pages(in_pdf), start=0):
         # Get the current page from the PDF
         page = reader.pages[page_number]
         
@@ -59,18 +49,17 @@ def find_text_positions_and_highlight(pdf_path, search_text, output_path):
                         # Save occurrence for e.g. log output
                         occurrences.append(__Occurrence(page_number, line_bbox[0], line_bbox[1], line_bbox[2]-line_bbox[0], line_bbox[3]-line_bbox[1]))
 
-# todo add here configuration for left and right in %
                         # Add a highlight annotation for the line
-                        add_highlight_annotation(page, (page_layout.width * 0.07, line_bbox[1], page_layout.width * 0.95, line_bbox[3]))
+                        add_highlight_annotation(page, (page_layout.width * start_rect, line_bbox[1], page_layout.width * end_rect, line_bbox[3]), rgb_color)
         
         # Add the processed page to the writer
         writer.add_page(page)
 
     # Write the modified PDF to the output file
-    with open(output_path, "wb") as f:
+    with open(out_pdf, "wb") as f:
         writer.write(f)
     print(f"Found {len(occurrences)} occurrence of {search_text}.")
-    print(f"Saved highlighted PDF to {output_path}.")
+    print(f"Saved highlighted PDF to {out_pdf}.")
 
 def get_printable_area_bbox(text_line, page_layout):
     """
@@ -97,7 +86,7 @@ def get_printable_area_bbox(text_line, page_layout):
 
     return line_start_x, line_start_y, line_end_x, line_end_y
 
-def add_highlight_annotation(page, bbox):
+def add_highlight_annotation(page, bbox, rgb_color: list):
     """
     Adds a highlight annotation to a PDF page.
 
@@ -124,8 +113,8 @@ def add_highlight_annotation(page, bbox):
             FloatObject(x0), FloatObject(y0-1),  # Bottom-left
             FloatObject(x1), FloatObject(y0-1)   # Bottom-right
         ]),
-        NameObject("/C"): ArrayObject(__COLORS['yellow']),
-        NameObject("/F"): FloatObject(6),  # Annotation flags (6 = printable, locked)
+        NameObject("/C"): ArrayObject([FloatObject(rgb_color[0]),FloatObject(rgb_color[1]),FloatObject(rgb_color[2])]),
+        NameObject("/F"): FloatObject(4),  # Annotation flags (4 = printable)
     })
 
     # Add the annotation to the page's annotations list
@@ -133,9 +122,52 @@ def add_highlight_annotation(page, bbox):
         page[NameObject("/Annots")] = ArrayObject()
     page[NameObject("/Annots")].append(highlight)
 
+def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yellow', out_pdf = None, start_rect: int = 7, end_rect: int = 95):
+    rgb_color = []
+    
+    # Check input path
+    if not os.path.exists(in_pdf):
+        print(fr'{in_pdf} not exist')
+        return 1
+    # Check search str
+    if search_str == '':
+        print(fr'no search string found')
+        return 2
+    
+    # Check color
+    if type(color) is str:
+        #Valid rgb value
+        if len(color) == 7 and color.startswith('#') and color[1:7].isnumeric():
+            rgb_color = [float(i)/255 for i in webcolors.hex_to_rgb(color)]
+        elif color.lower() in webcolors.names():
+            rgb_color = [float(i)/255 for i in webcolors.name_to_rgb(color)]
+        else:
+            print(fr'Color: {color} unknown or wrong type')
+            return 3
+    elif type(color) is list:
+        if len(color) == 3:
+            try:
+                rgb_color = [float(i)/255 for i in color]
+            except ValueError:
+                print(fr'Color: {color} unable to proces value')
+                return 3
+            for val in rgb_color:
+                if 0 < val < 1.0:
+                    print(fr'Color: {color} values only between 0 and 255 are allowed')
+                    return 3
+    else:
+        print(fr'Color: {color} has an unknown type')
+    
+    # Set output = input
+    if out_pdf is None:
+        out_pdf = in_pdf
+    
+    find_text_positions_and_highlight(in_pdf, out_pdf, search_str, rgb_color, float(start_rect)/100.0, float(end_rect)/100.0)
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    find_text_positions_and_highlight('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
+    #find_text_positions_and_highlight('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
+    highlight_in_pdf('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', out_pdf='Test.pdf')
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
