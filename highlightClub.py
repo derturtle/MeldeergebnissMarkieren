@@ -1,4 +1,8 @@
 import os.path
+import argparse
+from email.policy import default
+from math import trunc
+
 import webcolors
 
 from pdfminer.high_level import extract_pages
@@ -168,6 +172,25 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser(#prog='ProgramName',
+                    description='What the program does',
+                    epilog='Text at the bottom of help',
+                    usage="The string describing the program usage (default: generated from arguments added to parser)")
+    parser.add_argument('Input File', help='The "Meldeergbniss" to mark clubs in')
+    parser.add_argument('Club Name', help='The Name of the club which should be marked like "SV Georgsmarienhütte", this should also be possible with Names "Max Mustermann"')
+    #parser.add_argument('-h', '--help', help='Display this help')
+    parser.add_argument('-c', '--color', help='Color of the highlight, e.g. "yellow", "cyan",... or use rgb code like 255,255,0', default='yellow')
+    parser.add_argument('-o', '--output', help='Alternative output file', default=None)
+    parser.add_argument('-ro', '--offset', type=int, help='This makes the highlighted region bigger or smaller depending on the value [Default 1]', default=1)
+    parser.add_argument('-rs', '--start', type=int, help='This defines in percent of the page where the rect starts [Default: 7]', default=7)
+    parser.add_argument('-re', '--end', type=int, help='This defines in percent of the page where the rect end [Default: 95]', default=95)
+    try:
+        parser.parse_args()
+    except:
+        parser.print_help()
+    
+    a=2
     #find_text_positions_and_highlight('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
     highlight_in_pdf('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', out_pdf='Test.pdf', color='cyan')
 
