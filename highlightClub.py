@@ -135,6 +135,10 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
     if not os.path.exists(in_pdf):
         print(fr'{in_pdf} not exist')
         return 1
+    # Check for valid pdf
+    if not in_pdf.endswith('.pdf'):
+        print(fr'{in_pdf} seems not to be an pdf file')
+        return 1
     # Check search str
     if search_str == '':
         print(fr'no search string found')
@@ -158,7 +162,7 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
                 print(fr'Color: {color} unable to proces value')
                 return 3
             for val in rgb_color:
-                if 0 < val < 1.0:
+                if not 0 < val < 1.0:
                     print(fr'Color: {color} values only between 0 and 255 are allowed')
                     return 3
     else:
@@ -174,25 +178,22 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(#prog='ProgramName',
-                    description='What the program does',
-                    epilog='Text at the bottom of help',
-                    usage="The string describing the program usage (default: generated from arguments added to parser)")
-    parser.add_argument('Input File', help='The "Meldeergbniss" to mark clubs in')
-    parser.add_argument('Club Name', help='The Name of the club which should be marked like "SV Georgsmarienhütte", this should also be possible with Names "Max Mustermann"')
+                    description='This program marks clubs like "SV Georgsmarienhütte" in so called "Meldeergebnissen". It is also posiible to mark Person like "Max Mustermann"',
+                    epilog='Created by Florian Grafe form SV Georgsmarienhütte')
+                    #usage="The string describing the program usage (default: generated from arguments added to parser)")
+    parser.add_argument('input_file', help='The "Meldeergbniss" to mark clubs in')
+    parser.add_argument('club_name', help='The Name of the club which should be marked like "SV Georgsmarienhütte", this should also be possible with Names "Max Mustermann"')
     #parser.add_argument('-h', '--help', help='Display this help')
     parser.add_argument('-c', '--color', help='Color of the highlight, e.g. "yellow", "cyan",... or use rgb code like 255,255,0', default='yellow')
     parser.add_argument('-o', '--output', help='Alternative output file', default=None)
     parser.add_argument('-ro', '--offset', type=int, help='This makes the highlighted region bigger or smaller depending on the value [Default 1]', default=1)
     parser.add_argument('-rs', '--start', type=int, help='This defines in percent of the page where the rect starts [Default: 7]', default=7)
     parser.add_argument('-re', '--end', type=int, help='This defines in percent of the page where the rect end [Default: 95]', default=95)
-    try:
-        parser.parse_args()
-    except:
-        parser.print_help()
+    args = parser.parse_args()
+ 
+    # Check for rgb color and made create aray of it
+    if ',' in args.color:
+        args.color = args.color.split(',')
     
-    a=2
-    #find_text_positions_and_highlight('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', 'Test.pdf')
-    highlight_in_pdf('Meldeergebnis_Nikolaus_2024.pdf', 'SV Georgsmarienhütte', out_pdf='Test.pdf', color='cyan')
+    highlight_in_pdf(args.input_file, args.club_name, out_pdf=args.output, color=args.color, offset_rect=args.offset, start_rect=args.start, end_rect=args.end)
 
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
