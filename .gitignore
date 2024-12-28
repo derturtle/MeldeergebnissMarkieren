@@ -1,0 +1,12 @@
+# Ignore pycharm file
+.idea
+venv
+
+# Ignore Testfiles
+*.pdf
+
+# Ignore old version
+backup/
+
+# Ignore Idee
+notes.txt
