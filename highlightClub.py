@@ -225,15 +225,7 @@ def read_pdf(pdf_file: str):
             if isinstance(element, LTTextContainer):  # Check if the element is a text container
                 for text_line in element:
                     texts.append(PDFText(text_line, page_number))
-                # active_list.append(element)
-                # for text_line in element:  # Iterate over each text line in the container
-                #     line_text = text_line.get_text().strip()  # Extract the text content of the line
-                #     if line_text == 'Anzahl Meldungen':
-                #         elment_dict[line_text] = []
-                #         active_list = elment_dict[line_text]
-                #     if line_text == 'Gesamtzahl der Meldungen':
-    a = 1
-
+ 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
