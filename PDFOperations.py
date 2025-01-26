@@ -52,7 +52,8 @@ class PDFFile:
     _pdf_file: str
     _pdf_texts: list[PDFText]
     
-    clubs : list[Club] = []
+    clubs : dict = {}
+    competitions : dict = {}
     
     def __init__(self, pdf_file):
         self.pdf_file = pdf_file
@@ -145,11 +146,59 @@ class PDFFile:
                         for part in value[i].text.split('/'):
                             tmp.append(int(part.strip()))
                         club.segments.append(Participants(tmp))
-                    self.clubs.append(club)
+                    self.clubs[club.name] = club
                 # decrement counter
                 end -= 2
         
-        a = 1
+        return end
+    
+    def get_justing_panel(self, start_index: int, start_value: str, end_value: str) -> int:
+        end = start_index
+        # Find start of 'Judge panel'
+        while end < len(self._pdf_texts):
+            end+=1
+            # Found 'Kampfgericht'
+            if self._pdf_texts[end].text == start_value:
+                break
+        # Loop over 'Judge panel'
+        while end < len(self._pdf_texts):
+            end+=1
+            # Found 'Kampfgericht'
+            if self._pdf_texts[end].text.startswith(end_value):
+                end -=1
+                break
+            if self._pdf_texts[end].text == 'Verein':
+                # Check not for 'Verein' because it will appear later again
+                exclude = ['Verein', 'noch ' + start_value, 'Name']
+                while self._pdf_texts[end+1].text not in exclude and not self._pdf_texts[end+1].text.startswith(end_value):
+                    end += 1
+                    if self._pdf_texts[end].text in list(self.clubs.keys()):
+                        self.clubs[self._pdf_texts[end].text].occurrence.append(self._pdf_texts[end])
+                    else:
+                        print(fr'Found club "{self._pdf_texts[end].text}" which does not start')
+        return end
+    
+    def get_competitions(self, start_index: int, section: int):
+        end = start_index
+        # Find start of 'Judge panel'
+        while end < len(self._pdf_texts):
+            end += 1
+            # Found x
+            if self._pdf_texts[end].text == fr'Wettkampffolge für Abschnitt {section}':
+                break
+        # Loop over x
+        while end < len(self._pdf_texts):
+            end += 1
+            tmp = Competition.from_string(self._pdf_texts[end].text)
+            if not tmp or tmp.name() in list(self.competitions.keys()):
+                break
+            else:
+                self.competitions[tmp.name()] = tmp
+        
+        return end
+            
+        
+        
                         
         
     @staticmethod

@@ -181,8 +181,11 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    A = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
-    A.get_clubs()
+    Meld = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
+    index = Meld.get_clubs()
+    
+    index = Meld.get_justing_panel(index, 'Kampfgericht Abschnitt 1', 'Abschnitt 1')
+    index = Meld.get_competitions(index, 1)
     exit(0)
     
     parser = argparse.ArgumentParser(#prog='ProgramName',

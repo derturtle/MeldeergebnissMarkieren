@@ -1,6 +1,9 @@
+import re
 import datetime
+from os.path import split
 
 
+# todo this name is wrong for starts
 class Participants:
     def __init__(self, *args, **kwargs):
         self._value: dict = {'female': 0, 'male': 0}
@@ -37,14 +40,14 @@ class Participants:
     #     else:
     #         return self.__value[item]
     
-    def __check_list(self, args:list):
+    def __check_list(self, args: list):
         for i in range(0, len(args)):
             if type(args[i]) is int:
                 self._value[list(self._value.keys())[i]] = args[i]
             else:
                 raise ValueError
     
-    def __check_kwargs(self, kwargs:dict):
+    def __check_kwargs(self, kwargs: dict):
         if len(kwargs) != 0:
             for key, value in kwargs.items():
                 # self[key] = value
@@ -82,6 +85,7 @@ class Participants:
     def female(self, cnt: int):
         self._value['female'] = cnt
 
+
 class Association:
     NO_STRING: str = 'LSV-Nr.: '
     
@@ -100,7 +104,8 @@ class Association:
                 result += fr' ({self.id})'
         if len(self.clubs) > 0:
             result += fr' [{len(self.clubs)}]'
-            
+        return result
+    
     @classmethod
     def from_string(cls, string: str):
         local_id = 0
@@ -109,8 +114,7 @@ class Association:
             local_id = int(parts[1][:-1].replace(cls.NO_STRING, ''))
         
         return Association(parts[0].strip(), local_id)
-            
-    
+
 
 class Club:
     
@@ -124,7 +128,7 @@ class Club:
         
         self.__association: [Association, None] = None
         pass
-   
+    
     def __str__(self) -> str:
         result = self.name
         if self.id != '':
@@ -135,8 +139,13 @@ class Club:
         if not self.participants.isEmpty():
             result += fr' [ {self.participants} ]'
         return result
-   
-   
+    
+    def __eq__(self, other: str):
+         return self.name == other
+    
+    def __ne__(self, other: str):
+        return not self.__eq__(other)
+    
     @property
     def association(self):
         return self.__association
@@ -145,7 +154,7 @@ class Club:
     def association(self, value: Association):
         if self.__association is not None:
             self.__association.clubs.remove(self.__association)
-            
+        
         self.__association = value
         self.__association.clubs.append(self)
 
@@ -157,12 +166,41 @@ class Athlete:
 
 
 class Competition:
-    no: int
-    section: int
-    discipline : str
-    distance: int
     
-    _runs: list
+    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: int = 0, text: str = '', repetition: int = 0):
+        self.no: int = no
+        self.section: int = section
+        self.discipline: str = discipline
+        self.distance: int = distance
+        self.repetition: int = repetition
+        self.text: str = text
+        self.sex: str = sex
+        
+        self._runs: list = []
+        
+    def __str__(self):
+        return self.name()
+        
+    def name(self, run_cnt: bool = False) -> str:
+        if self.text != '':
+            if run_cnt:
+                return self.text
+            else:
+                parts = self.text.split('(')
+                if 'Läufe' in parts[len(parts)-1] or 'Lauf' in parts[len(parts)-1]:
+                    parts = parts[0:len(parts)-1]
+                return str('('.join(parts)).strip()
+        else:
+            result: str = fr'Wettkampf {self.no} - '
+            if self.repetition != 0:
+                result += fr'{self.repetition}x'
+            result += fr'{self.distance}m {self.discipline} {self.sex}'
+            if run_cnt:
+                if len(self._runs) != 1:
+                    result += fr' ({len(self._runs)} Läufe)'
+                else:
+                    result += fr' ({len(self._runs)} Lauf)'
+            return result
     
     @property
     def runs(self) -> list:
@@ -171,11 +209,31 @@ class Competition:
     def add_run(self, value):
         if not value in self._runs:
             self._runs.append(value)
+            
+    @staticmethod
+    def from_string(string: str, section: int = 0):
+        pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich)(.*)')
+        match = pattern.match(string)
+        if match:
+            parts = match.group(2).split('x')
+            if len(parts) == 2:
+                distance = int(parts[1])
+                repetition = int(parts[0])
+            else:
+                distance = int(parts[0])
+                repetition = 0
+                
+            return Competition(no=int(match.group(1)), distance=distance, discipline=match.group(3), sex=match.group(4), text=string, section=0, repetition=repetition)
+        else:
+            return None
+        
+    
+
 
 class Run:
     no: int
     
-    _lanes : list
+    _lanes: list
     _competition: Competition
     
     @property
@@ -190,10 +248,11 @@ class Run:
     @property
     def lanes(self) -> list:
         return self._lanes
-
+    
     def add_lane(self, value):
         if not value in self._lanes:
             self._lanes.append(value)
+
 
 class Lane:
     no: int
@@ -210,10 +269,3 @@ class Lane:
     def run(self, value: Run):
         if not self in value.lanes:
             value.lanes.append(value)
-    
-    
-    
-    
-    
-    
-    
