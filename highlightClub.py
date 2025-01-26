@@ -3,7 +3,7 @@ import argparse
 from email.policy import default
 from math import trunc
 
-from Class_Clubs import *
+from PDFOperations import *
 
 import webcolors
 
@@ -177,59 +177,12 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
     
     find_text_positions_and_highlight(in_pdf, out_pdf, search_str, rgb_color, float(start_rect)/100.0, float(end_rect)/100.0, offset_rect)
 
-class PDFText:
-    def __init__(self, text_container: LTTextContainer, page_no: int):
-        self.text_container = text_container
-        self.page_no = page_no
-        
-    def __str__(self):
-        return self.text
-        
-    @property
-    def text(self) -> str:
-        return self.text_container.get_text().strip()
-    
-    @property
-    def bbox(self) -> tuple:
-        return self.text_container.bbox
-    
-    @property
-    def x(self) -> float:
-        return self.bbox[0]
-    
-    @property
-    def y(self) -> float:
-        return self.bbox[1]
-    
-    @property
-    def width(self) -> float:
-        return self.bbox[2]-self.bbox[0]
-    
-    @property
-    def hight(self) -> float:
-        return self.bbox[3]-self.bbox[1]
 
-
-def read_pdf(pdf_file: str):
-    
-    texts: list = []
-    
-    reader = PdfReader(pdf_file)
-    # Loop through each page in the PDF
-    for page_number, page_layout in enumerate(extract_pages(pdf_file), start=0):
-        # Get the current page from the PDF
-        page = reader.pages[page_number]
-        
-        # Process each element in the layout of the page
-        for element in page_layout:
-            if isinstance(element, LTTextContainer):  # Check if the element is a text container
-                for text_line in element:
-                    texts.append(PDFText(text_line, page_number))
- 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    read_pdf("Meldeergebnis_TSG_2024.pdf")
+    A = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
+    A.get_clubs()
     exit(0)
     
     parser = argparse.ArgumentParser(#prog='ProgramName',

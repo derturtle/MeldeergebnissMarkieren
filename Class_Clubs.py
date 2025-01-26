@@ -1,11 +1,10 @@
-
+import datetime
 
 
 class Participants:
-    __value:dict = {'male': 0, 'female': 0}
-    
     def __init__(self, *args, **kwargs):
-        # super().__init__()
+        self._value: dict = {'female': 0, 'male': 0}
+        
         if len(args) == 0:
             # use kwargs
             self.__check_kwargs(kwargs)
@@ -15,7 +14,7 @@ class Participants:
             elif type(args[0]) is list and len(args[0]) <= 2:
                 self.__check_list(args[0])
             elif type(args[0]) is int:
-                self.__value['male'] = args[0]
+                self._value['male'] = args[0]
             else:
                 raise ValueError
         elif len(args) == 2:
@@ -24,7 +23,7 @@ class Participants:
             raise ValueError
     
     def __str__(self):
-        return fr'{self.__value["male"] / self.__value["female"]}'
+        return fr'{self._value["female"]} / {self._value["male"]}'
     
     # def __setitem__(self, key, value):
     #     if not (key == 'male' or key == 'female' and type(value) is int):
@@ -41,7 +40,7 @@ class Participants:
     def __check_list(self, args:list):
         for i in range(0, len(args)):
             if type(args[i]) is int:
-                self.__value[list(self.__value.keys())[i]] = args[i]
+                self._value[list(self._value.keys())[i]] = args[i]
             else:
                 raise ValueError
     
@@ -52,13 +51,13 @@ class Participants:
                 if not (key == 'male' or key == 'female' and type(value) is int):
                     raise ValueError
                 else:
-                    self.__value[key] = value
+                    self._value[key] = value
     
     def toList(self) -> list:
-        return [self.__value['male'], self.__value['female']]
+        return [self._value['female'], self._value['male']]
     
     def toDict(self) -> dict:
-        return self.__value
+        return self._value
     
     def isEmpty(self) -> bool:
         return self.cnt == 0
@@ -69,50 +68,61 @@ class Participants:
     
     @property
     def male(self):
-        return self.__value['male']
+        return self._value['male']
     
     @male.setter
     def male(self, cnt: int):
-        self.__value['male'] = cnt
+        self._value['male'] = cnt
     
     @property
     def female(self):
-        return self.__value['female']
+        return self._value['female']
     
     @female.setter
     def female(self, cnt: int):
-        self.__value['female'] = cnt
+        self._value['female'] = cnt
 
 class Association:
-    name: str
-    id: 0
-    clubs: list
+    NO_STRING: str = 'LSV-Nr.: '
     
-    def __init__(self, name: str, id: str = ''):
+    def __init__(self, name: str, id: int = 0):
         self.name = name
         self.id = id
+        self.clubs = []
         pass
     
     def __str__(self) -> str:
         result = self.name
         if self.id != '':
-            if self.id.isnumeric():
-                result += fr' (LSV-Nr.: {self.id})'
+            if self.id != 0:
+                result += fr' ({self.NO_STRING}{self.id})'
             else:
                 result += fr' ({self.id})'
         if len(self.clubs) > 0:
             result += fr' [{len(self.clubs)}]'
+            
+    @classmethod
+    def from_string(cls, string: str):
+        local_id = 0
+        parts = string.split('(')
+        if len(parts) == 2:
+            local_id = int(parts[1][:-1].replace(cls.NO_STRING, ''))
+        
+        return Association(parts[0].strip(), local_id)
+            
+    
 
 class Club:
-    name: str
-    id: str
-    participants: Participants
-    segments: list
-    __association: [Association, None] = None
     
     def __init__(self, name: str, id: str = ''):
         self.name = name
         self.id = id
+        
+        self.participants: Participants = Participants()
+        self.segments: list = []
+        self.occurrence: list = []
+        
+        self.__association: [Association, None] = None
         pass
    
     def __str__(self) -> str:
@@ -138,6 +148,70 @@ class Club:
             
         self.__association = value
         self.__association.clubs.append(self)
+
+
+class Athlete:
+    name: str
+    year: int
+    club: Club
+
+
+class Competition:
+    no: int
+    section: int
+    discipline : str
+    distance: int
+    
+    _runs: list
+    
+    @property
+    def runs(self) -> list:
+        return self._runs
+    
+    def add_run(self, value):
+        if not value in self._runs:
+            self._runs.append(value)
+
+class Run:
+    no: int
+    
+    _lanes : list
+    _competition: Competition
+    
+    @property
+    def competition(self) -> Competition:
+        return self._competition
+    
+    @competition.setter
+    def competition(self, value: Competition):
+        if not self in value.runs:
+            value.runs.append(value)
+    
+    @property
+    def lanes(self) -> list:
+        return self._lanes
+
+    def add_lane(self, value):
+        if not value in self._lanes:
+            self._lanes.append(value)
+
+class Lane:
+    no: int
+    time: datetime.time
+    athlete: Athlete
+    
+    _run: Run
+    
+    @property
+    def run(self) -> Run:
+        return self._run
+    
+    @run.setter
+    def run(self, value: Run):
+        if not self in value.lanes:
+            value.lanes.append(value)
+    
+    
     
     
     
