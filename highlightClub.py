@@ -9,8 +9,8 @@ import webcolors
 
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
-from PyPDF2 import PdfReader, PdfWriter, PageObject
-from PyPDF2.generic import NameObject, DictionaryObject, ArrayObject, FloatObject, TextStringObject
+from pypdf import PdfReader, PdfWriter, PageObject
+from pypdf.generic import NameObject, DictionaryObject, ArrayObject, FloatObject, TextStringObject
 
 class __Occurrence:
     def __init__(self, page: int, x: float, y: float, width: float, height: float):
@@ -186,6 +186,7 @@ if __name__ == '__main__':
     
     index = Meld.get_justing_panel(index, 'Kampfgericht Abschnitt 1', 'Abschnitt 1')
     index = Meld.get_competitions(index, 1)
+    index = Meld.get_competitions_info(index, 1)
     exit(0)
     
     parser = argparse.ArgumentParser(#prog='ProgramName',

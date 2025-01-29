@@ -4,7 +4,7 @@ from Class_Clubs import *
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
 
-from PyPDF2 import PdfReader, PdfWriter, PageObject
+from pypdf import PdfReader, PdfWriter, PageObject
 
 MYVALUES: list = [
     'Anzahl Meldungen',
@@ -54,6 +54,7 @@ class PDFFile:
     
     clubs : dict = {}
     competitions : dict = {}
+    sections : dict = {}
     
     def __init__(self, pdf_file):
         self.pdf_file = pdf_file
@@ -180,6 +181,10 @@ class PDFFile:
     
     def get_competitions(self, start_index: int, section: int):
         end = start_index
+        
+        if not section in self.sections.keys():
+            self.sections[section] = []
+        
         # Find start of 'Judge panel'
         while end < len(self._pdf_texts):
             end += 1
@@ -194,9 +199,65 @@ class PDFFile:
                 break
             else:
                 self.competitions[tmp.name()] = tmp
-        
+                self.sections[section].append(tmp)
         return end
+    
+    def get_competitions_info(self, start_index: int, section: int):
+        end = start_index
+        
+        # Find start of first competition
+        while end < len(self._pdf_texts):
+            if self._pdf_texts[end].text == self.sections[section][0].name():
+                break
+            end += 1
+        # debug...
+        self.process_competition(end, 1)
+        
+        pass
+    
+    def process_competition(self, start_index: int, competition_no: int):
+        end = start_index
+        rows: dict = {}
+        while True:
+        
+            while not fr'Wettkampf {competition_no}' in self._pdf_texts[end].text:
+                end += 1
+                # end function if file end is reached
+                if end >= len(self._pdf_texts):
+                    return end
+                    
+            page = self._pdf_texts[end].page_no
+            left = self._pdf_texts[end].x
             
+            # next entry
+            end += 1
+            # First value is competition with number
+            while page == self._pdf_texts[end].page_no:
+                if self._pdf_texts[end].x == left:
+                    if fr'Wettkampf {competition_no+1}' in self._pdf_texts[end].text or fr'Kampfgericht' in self._pdf_texts[end].text:
+                        self.process_competition_rows(rows)
+                        return end
+                
+                key = page * 1000 + self._pdf_texts[end].y
+                
+                if key in list(rows.keys()):
+                    rows[key].append(self._pdf_texts[end])
+                else:
+                    rows[key] = [self._pdf_texts[end]]
+                
+                end += 1
+                # end function if file end is reached
+                if end >= len(self._pdf_texts):
+                    self.process_competition_rows(rows)
+                    return end
+            
+            
+    
+    def process_competition_rows(self, rows: dict):
+        
+        pass
+        
+
         
         
                         

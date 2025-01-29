@@ -159,15 +159,21 @@ class Club:
         self.__association.clubs.append(self)
 
 
+class Year:
+    year: int
+    
+    occurrence : list
+
 class Athlete:
     name: str
-    year: int
+    year: Year
     club: Club
-
+    
+    occurrence : list
 
 class Competition:
     
-    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: int = 0, text: str = '', repetition: int = 0):
+    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: int = 0, text: str = '', repetition: int = 0, run_cnt: int = 0):
         self.no: int = no
         self.section: int = section
         self.discipline: str = discipline
@@ -175,6 +181,7 @@ class Competition:
         self.repetition: int = repetition
         self.text: str = text
         self.sex: str = sex
+        self.run_cnt: int = run_cnt
         
         self._runs: list = []
         
@@ -197,9 +204,9 @@ class Competition:
             result += fr'{self.distance}m {self.discipline} {self.sex}'
             if run_cnt:
                 if len(self._runs) != 1:
-                    result += fr' ({len(self._runs)} Läufe)'
+                    result += fr' ({self.run_cnt} Läufe)'
                 else:
-                    result += fr' ({len(self._runs)} Lauf)'
+                    result += fr' ({self.run_cnt} Lauf)'
             return result
     
     @property
@@ -212,7 +219,8 @@ class Competition:
             
     @staticmethod
     def from_string(string: str, section: int = 0):
-        pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich)(.*)')
+        pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich).*\((\d+) (Läufe|Lauf)\)')
+        
         match = pattern.match(string)
         if match:
             parts = match.group(2).split('x')
@@ -223,7 +231,7 @@ class Competition:
                 distance = int(parts[0])
                 repetition = 0
                 
-            return Competition(no=int(match.group(1)), distance=distance, discipline=match.group(3), sex=match.group(4), text=string, section=0, repetition=repetition)
+            return Competition(no=int(match.group(1)), distance=distance, discipline=match.group(3), sex=match.group(4), text=string, section=0, repetition=repetition, run_cnt=int(match.group(5)))
         else:
             return None
         
