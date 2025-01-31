@@ -1,4 +1,6 @@
 import os
+from math import trunc
+
 from Class_Clubs import *
 
 from pdfminer.high_level import extract_pages
@@ -6,13 +8,16 @@ from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
 
 from pypdf import PdfReader, PdfWriter, PageObject
 
+STARTVALUE: str = 'Anzahl Meldungen'
+
+ENDCLUB: str = 'Gesamtzahl der Meldungen'
+
+
 MYVALUES: list = [
-    'Anzahl Meldungen',
-    'Gesamtzahl der Meldungen'
-    'Kampfgericht Abschnitt 1'
-    'Abschnitt 1 - '
-    'Kampfgericht Abschnitt 1'
-    'Wettkampffolge für Abschnitt 1'
+    'Kampfgericht Abschnitt',
+    'Abschnitt',
+    'Wettkampffolge für Abschnitt',
+    'Wettkampf'
 ]
 
 
@@ -56,8 +61,12 @@ class PDFFile:
     competitions : dict = {}
     sections : dict = {}
     
+    
     def __init__(self, pdf_file):
         self.pdf_file = pdf_file
+        self.header: float = 0.0
+        
+        self.analyse: dict = {}
         pass
     
     @property
@@ -74,17 +83,174 @@ class PDFFile:
     def read(self):
         self._pdf_texts = []
         
-        reader = PdfReader(self._pdf_file)
-        # Loop through each page in the PDF
-        for page_number, page_layout in enumerate(extract_pages(self._pdf_file), start=0):
-            # Get the current page from the PDF
-            page = reader.pages[page_number]
+        start: bool = False
+        act_page = 0
+        index = 0
+        #
+        pdf_pages = extract_pages(self._pdf_file)
+        page_list = []
+        for page in pdf_pages:
+            page_list.append(page)
+            print(fr'len {len(page_list)}')
+            if len(page_list) == 12:
+                print(fr'Break at {len(page_list)} for debug purpose')
+                break
+        
+        # try to find start
+        for page_no, page_layout in enumerate(page_list, start=act_page):
+            if self._read_to_start(list(page_layout), page_no):
+                act_page = page_no
+                break
+                
+        # Get count of clubs and starts
+        for page_no, page_layout in enumerate(page_list[act_page:], start=act_page):
+            next_page, index = self._read_by_pages(list(page_layout), page_no, MYVALUES[0])
+            if not next_page:
+                self._get_clubs(self.analyse)
+                act_page = page_no
+                break
+        
+        # Create list to loop over other stuff
+        end_values: list = []
+        for i in range(len(self.clubs[list(self.clubs.keys())[0]].segments)):
+            for entry in MYVALUES:
+                end_values.append(fr'{entry} {i+1}')
+
+        end_index = 1
+        while end_index < len(end_values):
+
+            self.analyse = {}
+            # Create justing pannel
+            for page_no, page_layout in enumerate(page_list[act_page:], start=act_page):
+                next_page, index = self._read_by_pages(list(page_layout), page_no, end_values[end_index], index)
+                if next_page:
+                    #clear index again so that page starts with 0
+                    index = 0
+                else:
+                    act_page = page_no
+                    mod = end_index % len(MYVALUES)
+                    end_index += 1
+                    match mod:
+                        case 1:
+                            self._get_justing_panel(self.analyse)
+                        case 2:
+                            # do nothing ignore that
+                            pass
+                        case 3:
+                            self._get_competition(self.analyse)
+                            if end_index + len(MYVALUES) - 1 < len(end_values):
+                                end_values[end_index + len(MYVALUES) -1] = fr'{MYVALUES[len(MYVALUES) - 1]} {len(self.competitions)}'
+                        case _:
+                            pass
+                    break
+        
+  
             
-            # Process each element in the layout of the page
-            for element in page_layout:
-                if isinstance(element, LTTextContainer):  # Check if the element is a text container
-                    for text_line in element:
-                        self._pdf_texts.append(PDFText(text_line, page_number))
+    
+    def _read_to_start(self, page_elements: list, page_no) -> bool:
+        start_found: bool = False
+        # Process each element in the layout of the page
+        for element in page_elements:
+            if isinstance(element, LTTextContainer):  # Check if the element is a text container
+                for text_line in element:
+                    if STARTVALUE in text_line.get_text():
+                        # Match page
+                        # Get header - increase to 1 to make sure for test for <
+                        self.header = PDFText(text_line, page_no).bbox[3] + 1
+                        start_found = True
+                        break
+        return start_found
+    
+    def _read_by_pages(self, page_elements: list, page_no, end_entry, start_index = 0) -> tuple[bool, int]:
+        index = start_index
+        for index, element in enumerate(page_elements[start_index:], start=start_index):
+            if element.bbox[3] < self.header and isinstance(element, LTTextContainer):
+                for text_line in element:
+                    txt_obj = PDFText(text_line, page_no)
+                    if txt_obj.text.startswith(end_entry):
+                        return False, index
+                    y_pos = page_no*1000.0 + txt_obj.y
+                    if not y_pos in self.analyse.keys():
+                        self.analyse[y_pos] = []
+                    self.analyse[y_pos].append(txt_obj)
+        return True, index
+        
+    def _get_clubs(self, page: dict):
+        association: [Association, None] = None
+        club_index: int = -1
+        length : int= 0
+        index: int = 0
+        keys: list = list(page.keys())[:-3]
+        # get correct cnt and index of club
+        while index < len(keys) and club_index == -1:
+            for i in range(len(page[keys[index]])):
+                entry = page[keys[index]][i]
+                if entry.text == 'Verein':
+                    length = len(page[keys[index]])
+                    association = Association.from_string(page[keys[index - 1]][0].text)
+                    club_index = i
+                    break
+            index += 1
+        
+        while index < len(keys):
+            # Create Clubs
+            for index in range(index,len(keys)):
+                text_list: list = page[keys[index]]
+                if len(page[keys[index]]) == length:
+                    self._create_club(text_list[club_index:], association)
+                else:
+                    break
+            # Find new association
+            for index in range(index, len(keys)):
+                text_list: list = page[keys[index]]
+                if len(text_list) == length and text_list[club_index].text == 'Verein':
+                    association = Association.from_string(page[keys[index - 1]][0].text)
+                    break
+            # increment not to stop on last value
+            index += 1
+                    
+    def _create_club(self, text_obj_line: list, association: Association):
+        # Create club
+        club = Club(text_obj_line[0].text, text_obj_line[1].text)
+        # add occurrence
+        club.occurrence.append(text_obj_line[0])
+        # add association
+        if association:
+            club.association = association
+        # Create participants
+        tmp = []
+        for part in text_obj_line[2].text.split('/'):
+            tmp.append(int(part.strip()))
+        club.participants = Participants(tmp)
+        # Add segments
+        for i in range(3, len(text_obj_line) - 1):
+            tmp = []
+            for part in text_obj_line[i].text.split('/'):
+                tmp.append(int(part.strip()))
+            club.segments.append(Participants(tmp))
+        self.clubs[club.name] = club
+        
+        
+    def _get_justing_panel(self, page: dict):
+        for entry in page.values():
+            if len(entry) > 1 and entry[len(entry)-1].text != 'Verein':
+                last = entry[len(entry)-1]
+                if last.text in self.clubs.keys():
+                    self.clubs[last.text].occurrence.append(last)
+                else:
+                    club = Club(last.text, '-')
+                    club.occurrence.append(last)
+                    #self.clubs[club.name] = club
+                    print(fr'{club} has no swimmer')
+    
+    def _get_competition(self, page: dict):
+        for entry in page:
+            com = Competition.from_string(entry.text)
+            if com and not com.name() in list(self.competitions.keys()):
+                self.competitions[com.name()] = com
+            
+    
+    
                         
     def get_clubs(self) -> int:
         match: str = ''
