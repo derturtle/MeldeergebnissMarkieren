@@ -1,7 +1,11 @@
 import re
 import datetime
 from os.path import split
+from typing import final
 
+import Class_Clubs
+
+FINAL_STR: str = 'Finale'
 
 # todo this name is wrong for starts
 class Participants:
@@ -165,23 +169,33 @@ class Year:
     occurrence : list
 
 class Athlete:
-    name: str
-    year: Year
-    club: Club
+    def __init__(self, name: str, year: int, club: [Club, None] =None):
+        self.name: str = str(name)
+        self.year: int = int(year)
+        self.club: [Club, None] = club
     
-    occurrence : list
+        self.occurrence : list = []
+        self.lane: list = []
+
+    def __str__(self):
+        club_text = ''
+        if self.club:
+            club_text = fr' {self.club.name}'
+        return fr'{self.name} ({self.year}){club_text}'
+    
 
 class Competition:
     
-    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: int = 0, text: str = '', repetition: int = 0, run_cnt: int = 0):
-        self.no: int = no
-        self.section: int = section
-        self.discipline: str = discipline
-        self.distance: int = distance
-        self.repetition: int = repetition
-        self.text: str = text
-        self.sex: str = sex
-        self.run_cnt: int = run_cnt
+    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: int = 0, text: str = '', repetition: int = 0, run_cnt: int = 0, final: bool = False):
+        self.no: int = int(no)
+        self.section: int = int(section)
+        self.discipline: str = str(discipline)
+        self.distance: int = int(distance)
+        self.repetition: int = int(repetition)
+        self.text: str = str(text)
+        self.sex: str = str(sex)
+        self.run_cnt: int = int(run_cnt)
+        self._final: bool = bool(final)
         
         self._runs: list = []
         
@@ -213,13 +227,17 @@ class Competition:
     def runs(self) -> list:
         return self._runs
     
-    def add_run(self, value):
+    def add_heat(self, value):
         if not value in self._runs:
             self._runs.append(value)
+    
+    def is_final(self) -> bool:
+        return self._final
             
     @staticmethod
     def from_string(string: str, section: int = 0):
-        pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich).*\((\d+) (Läufe|Lauf)\)')
+        pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich)(.*)')
+        sub_pat = re.compile(r'.*\((\d+) (Läufe|Lauf)\)')
         
         match = pattern.match(string)
         if match:
@@ -230,28 +248,47 @@ class Competition:
             else:
                 distance = int(parts[0])
                 repetition = 0
+            
+            run_cnt: int = 0
+            sub_match = sub_pat.match(match.group(5))
+            if sub_match:
+                run_cnt = int(sub_match.group(1))
                 
-            return Competition(no=int(match.group(1)), distance=distance, discipline=match.group(3), sex=match.group(4), text=string, section=0, repetition=repetition, run_cnt=int(match.group(5)))
+            is_final: bool = FINAL_STR in string
+            
+            return Competition(no=int(match.group(1)), distance=distance, discipline=match.group(3), sex=match.group(4), text=string, section=0, repetition=repetition, run_cnt=run_cnt, final=is_final)
         else:
             return None
         
     
 
 
-class Run:
-    no: int
+class Heat:
     
-    _lanes: list
-    _competition: Competition
+    def __init__(self, no: int, competition: [Competition, None] = None):
+        self.no: int = int(no)
+        self._lanes: list[Lane] = []
+        if competition is None:
+            self._competition = None
+        else:
+            self.competition = competition
+    
+    def __str__(self):
+        c_no: int = 0
+        if self.competition:
+            c_no = self.competition.no
+        return fr'WK{c_no:02d}/L{self.no:02d} [{len(self._lanes)}]'
     
     @property
-    def competition(self) -> Competition:
+    def competition(self) -> [Competition, None]:
         return self._competition
     
     @competition.setter
     def competition(self, value: Competition):
         if not self in value.runs:
-            value.runs.append(value)
+            value.add_heat(self)
+        self._competition = value
+        
     
     @property
     def lanes(self) -> list:
@@ -260,20 +297,36 @@ class Run:
     def add_lane(self, value):
         if not value in self._lanes:
             self._lanes.append(value)
+    
+    @classmethod
+    def from_string(cls, string: str):
+        pattern = re.compile(r'Lauf (\d+)(.*)')
+        match = pattern.match(string)
+        if match:
+            return cls(match.group(1))
+        else:
+            return None
 
 
 class Lane:
-    no: int
-    time: datetime.time
-    athlete: Athlete
-    
-    _run: Run
-    
+    def __init__(self, no: int, time: datetime.time, athlete: Athlete, heat: [Heat, None]):
+        self.no: int = int(no)
+        self.time: datetime.time = time
+        self.athlete: Athlete = athlete
+        self._heat: [Heat, None] = None
+        
+        if heat:
+            self.heat = heat
+            
+    def __str__(self):
+        return fr'Bahn {self.no} - {self.athlete} - {self.time}'
+            
     @property
-    def run(self) -> Run:
-        return self._run
+    def heat(self) -> Heat:
+        return self._heat
     
-    @run.setter
-    def run(self, value: Run):
+    @heat.setter
+    def heat(self, value: Heat):
         if not self in value.lanes:
-            value.lanes.append(value)
+            value.lanes.append(self)
+        self._heat = value
