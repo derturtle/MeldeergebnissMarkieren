@@ -66,7 +66,7 @@ class PDFFile:
             self.__state: int = 0
             self.__page_no: int = -1
             self.pages_data: dict = {}
-            self.page_index: int = 0
+            self.page_index: int = -1
             self.page_header: float = self.HEADER_MAX
             self.__last_repetition: int = 0
             self.__repetition: int = 0
@@ -201,12 +201,12 @@ class PDFFile:
     def __create_pages_data(page_elements: list, file_info: __FileInfo) -> bool:
         next_page: bool = True
         # Process each element in the layout of the page
-        for index, element in enumerate(page_elements[file_info.page_index:], start=file_info.page_index):
+        for index, element in enumerate(page_elements, start=file_info.page_index):
             if element.bbox[3] < file_info.page_header and isinstance(element, LTTextContainer):  # Check if the element is a text container
                 for text_line in element:
                     txt_obj = PDFText(text_line, file_info.page_no)
                     # -- Check for match - to end scan
-                    if txt_obj.text.startswith(file_info.get_compare_value()):
+                    if index > file_info.page_index and txt_obj.text.startswith(file_info.get_compare_value()):
                         # Match page
                         if not file_info.header_set():
                             # Get header - increase to 1 to make sure for test for <
