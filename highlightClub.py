@@ -181,7 +181,8 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    Meld = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
+    Meld_TSG = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
+    Meld_Nikoluas = PDFFile.read_pdf("Meldeergebnis_Nikolaus_2024.pdf")
     a = 1
     exit(0)
     
