@@ -1,0 +1,41 @@
+SV GMHütte
+
+Kampfrichter [1/2/1/3]
+
+Abschnit 1:
+Schwimmrichter 1; - (Name)
+Zeitnehmer Bahn 6; - (Name)
+Abschnit 2:
+
+[...]
+
+Starts
+[Abschnit] [WK/L/B]
+Florian Grafe (1986)
+[1] 10/ 8/2 50m Freistil
+[3] 25/10/7 100m Schmetterling
+
+=> md
+
+# SV GMHütte
+
+## Kampfrichter [1/2/1/3]
+
+### Abschnit 1:
+1. Schwimmrichter 1: - (Name)
+2. Zeitnehmer Bahn 6: - (Name)
+
+### Abschnit 2:
+
+[...]
+
+## Starts
+[Abschnit] [WK/L/B]
+### Florian Grafe (1986)
+
+- [1] 10/ 8/2 50m Freistil
+- [3] 25/10/7 100m Schmetterling
+
+=> html
+
+

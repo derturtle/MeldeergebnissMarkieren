@@ -3,7 +3,36 @@ import datetime
 
 FINAL_STR: str = 'Finale'
 
-#----- Base Class Area -----
+
+class EntryResultCollection:
+    def __init__(self):
+        self._instances = {}
+    
+    def add(self, obj):
+        self._instances.setdefault(type(obj).__name__, []).append(obj)
+    
+    def get_all(self, obj_type=None):
+        if obj_type:
+            return self._instances.get(obj_type, [])
+        return self._instances
+    
+    def __repr__(self):
+        return f"ObjectCollector({self._instances})"
+
+
+class EntryBase:
+    registry: [None, EntryResultCollection] = None
+    
+    def __init__(self):
+        # self.registry = registry
+        if self.registry:
+            self.registry.add(self)
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"
+
+
+# ----- Base Class Area -----
 
 class HasOccurrence:
     def __init__(self):
@@ -21,6 +50,7 @@ class HasOccurrence:
         if value in self._occurrence:
             self._occurrence.remove(value)
 
+
 class HasLanes:
     def __init__(self):
         self._lanes: list = []
@@ -32,11 +62,12 @@ class HasLanes:
     def add_lane(self, value):
         if not value in self._lanes:
             self._lanes.append(value)
-            
+    
     def remove_lane(self, value):
         if value in self._lanes:
             self._lanes.remove(value)
-            
+
+
 class HasHeats:
     def __init__(self):
         self._heats: list = []
@@ -48,7 +79,7 @@ class HasHeats:
     def add_heat(self, value):
         if not value in self._heats:
             self._heats.append(value)
-            
+    
     def remove_heat(self, value):
         if value in self._heats:
             self._heats.remove(value)
@@ -70,6 +101,7 @@ class HasClubs:
         if value in self._clubs:
             self._clubs.remove(value)
 
+
 class HasAthletes:
     def __init__(self):
         self._athletes: list = []
@@ -86,10 +118,62 @@ class HasAthletes:
         if value in self._athletes:
             self._athletes.remove(value)
 
-# todo this name is wrong for starts
-class Participants:
-    def __init__(self, *args, **kwargs):
-        self._value: dict = {'female': 0, 'male': 0}
+
+class HasJudges:
+    def __init__(self):
+        self._judges: list = []
+    
+    @property
+    def judges(self) -> list:
+        return self._judges
+    
+    def add_judge(self, value):
+        if not value in self._judges:
+            self._judges.append(value)
+    
+    def remove_judge(self, value):
+        if value in self._judges:
+            self._judges.remove(value)
+
+
+# class HasSections:
+#     def __init__(self):
+#         self._sections: list = []
+#
+#     @property
+#     def section(self) -> list:
+#         return self._sections
+#
+#     def add_section(self, value):
+#         if not value in self._sections:
+#             self._sections.append(value)
+#
+#     def remove_section(self, value):
+#         if value in self._sections:
+#             self._sections.remove(value)
+
+class HasCompetitions:
+    def __init__(self):
+        self._competitions: list = []
+    
+    @property
+    def competitions(self) -> list:
+        return self._competitions
+    
+    def add_competition(self, value):
+        if not value in self._competitions:
+            self._competitions.append(value)
+    
+    def remove_competition(self, value):
+        if value in self._competitions:
+            self._competitions.remove(value)
+
+
+class Quantity:
+    def __init__(self, first_enty_name: str, second_entry_name: str, args: tuple, kwargs: dict):
+        self.__first_enty_name = first_enty_name
+        self.__second_entry_name = second_entry_name
+        self._value: dict = {first_enty_name: 0, second_entry_name: 0}
         
         if len(args) == 0:
             # use kwargs
@@ -100,7 +184,7 @@ class Participants:
             elif type(args[0]) is list and len(args[0]) <= 2:
                 self.__check_list(args[0])
             elif type(args[0]) is int:
-                self._value['male'] = args[0]
+                self._value[self.__first_enty_name] = args[0]
             else:
                 raise ValueError
         elif len(args) == 2:
@@ -109,23 +193,23 @@ class Participants:
             raise ValueError
     
     def __str__(self):
-        return fr'{self._value["female"]} / {self._value["male"]}'
- 
+        return fr'{self._value[self.__first_enty_name]} / {self._value[self.__second_entry_name]}'
+    
+    def __check_kwargs(self, kwargs: dict):
+        if len(kwargs) != 0:
+            for key, value in kwargs.items():
+                # self[key] = value
+                if not (key == self.__first_enty_name or key == self.__second_entry_name and type(value) is int):
+                    raise ValueError
+                else:
+                    self._value[key] = value
+    
     def __check_list(self, args: list):
         for i in range(0, len(args)):
             if type(args[i]) is int:
                 self._value[list(self._value.keys())[i]] = args[i]
             else:
                 raise ValueError
-    
-    def __check_kwargs(self, kwargs: dict):
-        if len(kwargs) != 0:
-            for key, value in kwargs.items():
-                # self[key] = value
-                if not (key == 'male' or key == 'female' and type(value) is int):
-                    raise ValueError
-                else:
-                    self._value[key] = value
     
     def to_list(self) -> list:
         return [self._value['female'], self._value['male']]
@@ -141,20 +225,56 @@ class Participants:
         return sum(self.to_list())
     
     @property
-    def male(self):
-        return self._value['male']
-    
-    @male.setter
-    def male(self, cnt: int):
-        self._value['male'] = cnt
+    def _first_enty_name(self) -> str:
+        return self.__first_enty_name
     
     @property
-    def female(self):
-        return self._value['female']
+    def _second_entry_name(self) -> str:
+        return self.__second_entry_name
+
+
+# ----- Working Classes -----
+
+class Participants(Quantity):
+    def __init__(self, *args, **kwargs):
+        Quantity.__init__(self, 'female', 'male', args, kwargs)
+    
+    @property
+    def female(self) -> int:
+        return self._value[self._first_enty_name]
     
     @female.setter
     def female(self, cnt: int):
-        self._value['female'] = cnt
+        self._value[self._first_enty_name] = cnt
+    
+    @property
+    def male(self) -> int:
+        return self._value[self._second_entry_name]
+    
+    @male.setter
+    def male(self, cnt: int):
+        self._value[self._second_entry_name] = cnt
+
+
+class Starts(Quantity):
+    def __init__(self, *args, **kwargs):
+        Quantity.__init__(self, 'single', 'relay', args, kwargs)
+    
+    @property
+    def single(self) -> int:
+        return self._value[self._first_enty_name]
+    
+    @single.setter
+    def single(self, cnt: int):
+        self._value[self._first_enty_name] = cnt
+    
+    @property
+    def relay(self) -> int:
+        return self._value[self._second_entry_name]
+    
+    @relay.setter
+    def relay(self, cnt: int):
+        self._value[self._second_entry_name] = cnt
 
 
 class Association(HasClubs):
@@ -187,16 +307,17 @@ class Association(HasClubs):
         return Association(parts[0].strip(), local_id)
 
 
-class Club(HasAthletes, HasOccurrence):
+class Club(HasAthletes, HasOccurrence, HasJudges):
     
     def __init__(self, name: str, dsv_id: str = '', association: [Association, None] = None):
         HasAthletes.__init__(self)
         HasOccurrence.__init__(self)
+        HasJudges.__init__(self)
         self.name = name
         self.dsv_id = dsv_id
         
         self.participants: Participants = Participants()
-        self.segments: list = []
+        self.starts_by_segments: list = []
         self.__association = None
         self.association = association
         pass
@@ -225,12 +346,74 @@ class Club(HasAthletes, HasOccurrence):
     @association.setter
     def association(self, value: [Association, None]):
         self.__association = self.__setter(value, self.__association)
-        
+    
+    @property
+    def starts(self) -> Starts:
+        single = 0
+        relay = 0
+        for start in self.starts_by_segments:
+            if type(start) == Starts:
+                single += start.single
+                relay += start.relay
+        return Starts([single, relay])
+    
     def __setter(self, value, obj):
         if value:
             value.add_club(self)
         elif obj:
             obj.remove_club(self)
+        return value
+
+class Section(HasCompetitions, HasJudges):
+    def __init__(self, no: int):
+        HasCompetitions.__init__(self)
+        HasJudges.__init__(self)
+        self.no: int = int(no)
+        
+    def __str__(self):
+        return fr'Abschnitt {self.no}'
+    
+
+class Judge:
+    def __init__(self, position: str, name: str = '-', club: [Club, None] = None, section: [Section,None] = None):
+        self.name = name
+        self.position = position
+        self._section = None
+        self._club = None
+        self.section = section
+        self.club = club
+        
+    def __str__(self):
+        no = 0
+        club =''
+        if self._section:
+            no = self._section.no
+        if self.club:
+            club = fr' {self.club.name}'
+        
+        return fr'[{no}] {self.position} ({self.name}){club}'
+    
+    @property
+    def section(self) -> [Section, None]:
+        return self._section
+    
+    @section.setter
+    def section(self, value: [Section, None]):
+        self._section = self.__setter(value, self._club)
+    
+    @property
+    def club(self) -> [Club, None]:
+        return self._club
+    
+    @club.setter
+    def club(self, value: [Club, None]):
+        self._club = self.__setter(value, self._club)
+    
+    def __setter(self, value, obj):
+        if value:
+            value.add_judge(self)
+        elif obj:
+            obj.remove_judge(self)
         return value
 
 
@@ -239,14 +422,13 @@ class Year(HasOccurrence, HasAthletes):
         HasOccurrence.__init__(self)
         HasAthletes.__init__(self)
         self._year: int = int(year)
-        
+    
     @property
     def year(self):
         return self._year
     
     def __str__(self):
         return str(self._year)
-
 
 class Athlete(HasLanes, HasOccurrence):
     def __init__(self, name: str, year: [Year, None], club: [Club, None] = None):
@@ -265,7 +447,7 @@ class Athlete(HasLanes, HasOccurrence):
         if self.club:
             club_text = fr' {self.club.name}'
         return fr'{self.name} ({self.year}){club_text}'
-
+    
     @property
     def year(self) -> [Year, None]:
         return self._year
@@ -273,7 +455,7 @@ class Athlete(HasLanes, HasOccurrence):
     @year.setter
     def year(self, value: [Year, None]):
         self._year = self.__setter(value, self._year)
-
+    
     @property
     def club(self) -> [Club, None]:
         return self._club
@@ -281,23 +463,23 @@ class Athlete(HasLanes, HasOccurrence):
     @club.setter
     def club(self, value: [Club, None]):
         self._club = self.__setter(value, self._club)
-        
+    
     def __setter(self, value, obj):
         if value:
             value.add_athlete(self)
         elif obj:
             obj.remove_athlete(self)
         return value
-        
 
 
 class Competition(HasHeats):
     
-    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: int = 0, text: str = '',
+    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: [Section, None] = None, text: str = '',
                  repetition: int = 0, heat_cnt: int = 0, final: bool = False):
         HasHeats.__init__(self)
         self.no: int = int(no)
-        self.section: int = int(section)
+        self._section: [Section, None] = None
+        self.section = section
         self.discipline: str = str(discipline)
         self.distance: int = int(distance)
         self.repetition: int = int(repetition)
@@ -333,11 +515,30 @@ class Competition(HasHeats):
     def is_final(self) -> bool:
         return self._final
     
-    def is_relay(self)-> bool:
+    def is_relay(self) -> bool:
         return self.repetition > 0
     
+    @property
+    def section(self) -> Section:
+        return self._section
+    
+    @section.setter
+    def section(self, value: [None, Section]):
+        self._section = self.__setter(value, self._section)
+        
+    def __setter(self, value, obj):
+        # in case we change value
+        if value and obj:
+            obj.remove_competition(self)
+            value.add_competition(self)
+        elif value:
+            value.add_competition(self)
+        elif obj:
+            obj.remove_competition(self)
+        return value
+    
     @classmethod
-    def from_string(cls, string: str, section: int = 0):
+    def from_string(cls, string: str, section: [Section, None] = None):
         pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich|mixed)(.*)')
         sub_pat = re.compile(r'.*\((\d+) (Läufe|Lauf)\)')
         
@@ -432,7 +633,7 @@ class Lane:
     @athlete.setter
     def athlete(self, value: [Athlete, None]):
         self._athlete = self.__setter(value, self._athlete)
-
+    
     def __setter(self, value, obj):
         if value:
             value.add_lane(self)

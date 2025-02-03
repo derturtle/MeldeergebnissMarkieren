@@ -100,6 +100,7 @@ class PDFFile:
         self.clubs: dict = {}
         self.competitions: dict = {}
         self.competition_sequenz: list = []
+        self.sections: dict = {}
         self.athletes: dict = {}
         self.years: dict = {}
         
@@ -158,7 +159,10 @@ class PDFFile:
             # Run function
             self.__analyse_clubs(file_info, CNT_ENTRIES_STR, JUDGING_PANEL_STR)
             # Set max section in competition
-            file_info.max_section = len(list(self.clubs.values())[0].segments)
+            file_info.max_section = len(list(self.clubs.values())[0].starts_by_segments)
+            # Create sections
+            for i in range(file_info.max_section):
+                self.sections[i+1] = Section(i+1)
             
             # set next find_str
             next_value = SEGMENTS_STR
@@ -368,22 +372,24 @@ class PDFFile:
     def __analyse_judging_panel(self, file_info: __FileInfo, start_value: str, stop_value: str):
         # Remove unused values from page
         self.__remove_to_start(file_info, start_value)
-        # Create empty clubs list
-        empty_clubs: dict = {}
         for entry in file_info.pages_data.values():
             if len(entry) > 1:
                 if entry[len(entry) - 1].text != CLUB_STR:
+                    # Add club
                     last = entry[len(entry) - 1]
                     if last.text in self.clubs.keys():
-                        self.clubs[last.text].add_occurrence(last)
+                        club = self.clubs[last.text]
+                        club.add_occurrence(last)
                     else:
-                        club = Club(last.text, '-')
-                        if club.name in list(empty_clubs.keys()):
-                            empty_clubs[club.name].add_occurrence(last)
-                        else:
-                            empty_clubs[club.name] = club
-                            # self.clubs[club.name] = club
-                            print(fr'{club} has no swimmer')
+                        club =  self.__generate_club(last)
+                        # self.clubs[club.name] = club
+                        print(fr'{club} has no swimmer')
+                    
+                    judge_name = '-'
+                    if len(entry) == 3:
+                        judge_name = entry[1].text
+                    # Create judge
+                    Judge(entry[0].text, judge_name, club, self.sections[file_info.section_no])
             else:
                 # found stop condition
                 if entry[0].text.startswith(stop_value):
@@ -397,7 +403,7 @@ class PDFFile:
         self.__remove_to_start(file_info, start_value)
         
         for entry in file_info.pages_data.values():
-            competition = Competition.from_string(entry[0].text)
+            competition = Competition.from_string(entry[0].text, self.sections[file_info.section_no])
             if competition:
                 if not competition.no in list(self.competitions.keys()):
                     self.competitions[competition.no] = competition
@@ -504,10 +510,10 @@ class PDFFile:
             tmp = []
             for part in text_obj_line[i].text.split('/'):
                 tmp.append(int(part.strip()))
-            club.segments.append(Participants(tmp))
+            club.starts_by_segments.append(Starts(tmp))
         return club
     
-    def __generate_club(self, text_obj: PDFText, club_id: str = '', name: str = '') -> Club:
+    def __generate_club(self, text_obj: PDFText, club_id: str = '-', name: str = '') -> Club:
         if not text_obj.text in list(self.clubs.keys()):
             # Create club
             if name == '':
