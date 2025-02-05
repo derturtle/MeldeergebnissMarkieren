@@ -95,6 +95,8 @@ class PDFFile:
             return self.page_header != self.HEADER_MAX
     
     def __init__(self, pdf_file):
+        self._pdf_file: str
+        self.collection: Collection
         self.pdf_file = pdf_file
         
         self.clubs: dict = {}
@@ -103,8 +105,6 @@ class PDFFile:
         self.sections: dict = {}
         self.athletes: dict = {}
         self.years: dict = {}
-        
-        self._pdf_file: str
         pass
     
     @property
@@ -115,6 +115,7 @@ class PDFFile:
     def pdf_file(self, value: str):
         if os.path.exists(value):
             self._pdf_file = os.path.abspath(value)
+            self.collection = Collection(os.path.basename(self._pdf_file))
         else:
             raise ValueError
     
@@ -323,7 +324,7 @@ class PDFFile:
             entries = file_info.pages_data[keys[index]]
             for i in range(len(entries)):
                 entry = entries[i]
-                if entry.text == CLUB_STR:
+                if entry.text == CLUB_STR and not file_info.pages_data[keys[index - 1]][0].text.startswith('noch'):
                     length = len(entries)
                     association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
                     club_index = i
@@ -359,7 +360,9 @@ class PDFFile:
             for index in range(index, len(keys)):
                 text_list: list = file_info.pages_data[keys[index]]
                 if len(text_list) == length and text_list[club_index].text == CLUB_STR:
-                    association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
+                    association_str = file_info.pages_data[keys[index - 1]][0].text
+                    if not association_str.startswith('noch') and association_str != 'Gesamtzahl der Meldungen':
+                        association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
                     break
                 # end in case stop is reached
                 elif len(text_list) == 1 and text_list[0].text.startswith(stop_value):

@@ -4,33 +4,145 @@ import datetime
 FINAL_STR: str = 'Finale'
 
 
-class EntryResultCollection:
-    def __init__(self):
-        self._instances = {}
+class _Entry:
+    def __init__(self, entry_name: [str, None] = None):
+        self._name = ''
+        self._instance: dict = {}
+        if entry_name:
+            self.create(entry_name)
+        else:
+            self.create('default')
+        pass
+    
+    @property
+    def instance(self) -> dict:
+        return self._instance[self._name]
+    
+    @property
+    def name(self) -> str:
+        return self._name
+    
+    @name.setter
+    def name(self, value: str):
+        if value in list(self._instance.keys()):
+            self._name = value
+    
+    def available(self) -> list:
+        return list(self._instance.keys())
+    
+    def create(self, value: str) -> bool:
+        if self.exist(value):
+            return False
+        else:
+            self._instance[value] = {}
+            self.name = value
+            return True
+    
+    def is_active(self, value: str):
+        return self.name == value
+    
+    def exist(self, value) -> bool:
+        return value in list(self._instance.keys())
+
+class _Registry:
+    def __init__(self, name: [str, None] = None):
+        #self._instance = {}
+        #self.entry : _Entry = _Entry(self._instance, name)
+        self.entry: _Entry = _Entry(name)
     
     def add(self, obj):
-        self._instances.setdefault(type(obj).__name__, []).append(obj)
+        # if type(obj) not in self.entry.instance:
+        #     self.entry.instance[type(obj)] = {}
+        # self.entry.instance[type(obj)][str(obj)] = obj
+        self.entry.instance.setdefault(type(obj), []).append(obj)
+    
+    def remove(self, obj):
+        obj_list = self.entry.instance.get(type(obj), [])
+        if obj in obj_list:
+            obj_list.remove(obj)
+            # Falls die Liste leer ist, entfernen wir den Typ ganz aus dem Dict
+            if not obj_list:
+                del self.entry.instance[type(obj)]
     
     def get_all(self, obj_type=None):
         if obj_type:
-            return self._instances.get(obj_type, [])
-        return self._instances
+            return self.entry.instance.get(obj_type, [])
+        return self.entry.instance
     
     def __repr__(self):
-        return f"ObjectCollector({self._instances})"
+        return f"ObjectCollector({self._instance})"
 
-
-class EntryBase:
-    registry: [None, EntryResultCollection] = None
+class _Base:
+    _registry: [None, _Registry] = None
     
-    def __init__(self):
-        # self.registry = registry
-        if self.registry:
-            self.registry.add(self)
-    
+    def __init__(self, name: str  = ''):
+        self._name = name
+        if not _Base._registry:
+            _Base._registry = _Registry(name)
+        elif name:
+            _Base._registry.entry.create(name)
+        
+        _Base._registry.add(self)
+        self._name = _Base._registry.entry.name
+            
+    def __del__(self):
+        _Base._registry.remove(self)
+        
     def __repr__(self):
         return f"{self.__class__.__name__}()"
 
+class Collection(_Base):
+    
+    def __init__(self, name: str):
+        self._name = name
+        _Base.__init__(self, name)
+    
+    @property
+    def associations(self) -> dict:
+        return self._get_dict(Association)
+    
+    @property
+    def clubs(self) -> dict:
+        return self._get_dict(Club)
+    
+    @property
+    def sections(self) -> dict:
+        return self._get_dict(Section)
+    
+    @property
+    def years(self) -> dict:
+        return self._get_dict(Year)
+    
+    @property
+    def judges(self) -> dict:
+        return self._get_dict(Judge)
+    
+    @property
+    def athletes(self):
+        return self._get_dict(Athlete)
+    
+    @property
+    def competitions(self):
+        return self._get_dict(Competition)
+    
+    @property
+    def heats(self):
+        return self._get_dict(Heat)
+    
+    @property
+    def lanes(self):
+        return self._get_dict(Lane)
+
+    def _get_dict(self, obj_type):
+        self._set_active()
+        return self._registry.get_all(obj_type)
+
+    def _set_active(self):
+        if not self._registry.entry.is_active(self._name):
+            self._registry.entry.name = self._name
+
+    def __str__(self) -> str:
+        return fr'Collection({self._name})'
 
 # ----- Base Class Area -----
 
@@ -277,13 +389,14 @@ class Starts(Quantity):
         self._value[self._second_entry_name] = cnt
 
 
-class Association(HasClubs):
+class Association(_Base, HasClubs):
     NO_STRING: str = 'LSV-Nr.: '
     
     def __init__(self, name: str, dsv_id: int = 0):
-        HasClubs.__init__(self)
         self.name = name
         self.dsv_id = dsv_id
+        HasClubs.__init__(self)
+        _Base.__init__(self)
         pass
     
     def __str__(self) -> str:
@@ -307,12 +420,9 @@ class Association(HasClubs):
         return Association(parts[0].strip(), local_id)
 
 
-class Club(HasAthletes, HasOccurrence, HasJudges):
+class Club(_Base, HasAthletes, HasOccurrence, HasJudges):
     
     def __init__(self, name: str, dsv_id: str = '', association: [Association, None] = None):
-        HasAthletes.__init__(self)
-        HasOccurrence.__init__(self)
-        HasJudges.__init__(self)
         self.name = name
         self.dsv_id = dsv_id
         
@@ -320,6 +430,11 @@ class Club(HasAthletes, HasOccurrence, HasJudges):
         self.starts_by_segments: list = []
         self.__association = None
         self.association = association
+        
+        HasAthletes.__init__(self)
+        HasOccurrence.__init__(self)
+        HasJudges.__init__(self)
+        _Base.__init__(self)
         pass
     
     def __str__(self) -> str:
@@ -364,17 +479,20 @@ class Club(HasAthletes, HasOccurrence, HasJudges):
             obj.remove_club(self)
         return value
 
-class Section(HasCompetitions, HasJudges):
+class Section(_Base, HasCompetitions, HasJudges):
     def __init__(self, no: int):
+        self.no: int = int(no)
+        
         HasCompetitions.__init__(self)
         HasJudges.__init__(self)
-        self.no: int = int(no)
+        _Base.__init__(self)
+        
         
     def __str__(self):
         return fr'Abschnitt {self.no}'
     
 
-class Judge:
+class Judge(_Base):
     def __init__(self, position: str, name: str = '-', club: [Club, None] = None, section: [Section,None] = None):
         self.name = name
         self.position = position
@@ -382,6 +500,8 @@ class Judge:
         self._club = None
         self.section = section
         self.club = club
+        
+        _Base.__init__(self)
         
     def __str__(self):
         no = 0
@@ -417,11 +537,14 @@ class Judge:
         return value
 
 
-class Year(HasOccurrence, HasAthletes):
+class Year(_Base, HasOccurrence, HasAthletes):
     def __init__(self, year: int):
+        self._year: int = int(year)
+        
         HasOccurrence.__init__(self)
         HasAthletes.__init__(self)
-        self._year: int = int(year)
+        _Base.__init__(self)
+        
     
     @property
     def year(self):
@@ -430,10 +553,8 @@ class Year(HasOccurrence, HasAthletes):
     def __str__(self):
         return str(self._year)
 
-class Athlete(HasLanes, HasOccurrence):
+class Athlete(_Base, HasLanes, HasOccurrence):
     def __init__(self, name: str, year: [Year, None], club: [Club, None] = None):
-        HasOccurrence.__init__(self)
-        HasLanes.__init__(self)
         self.name: str = str(name)
         self._year: [Year, None] = None
         if year:
@@ -441,6 +562,10 @@ class Athlete(HasLanes, HasOccurrence):
         self._club: [Club, None] = None
         if club:
             self.club = club
+            
+        HasOccurrence.__init__(self)
+        HasLanes.__init__(self)
+        _Base.__init__(self)
     
     def __str__(self):
         club_text = ''
@@ -472,11 +597,10 @@ class Athlete(HasLanes, HasOccurrence):
         return value
 
 
-class Competition(HasHeats):
+class Competition(_Base, HasHeats):
     
     def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: [Section, None] = None, text: str = '',
                  repetition: int = 0, heat_cnt: int = 0, final: bool = False):
-        HasHeats.__init__(self)
         self.no: int = int(no)
         self._section: [Section, None] = None
         self.section = section
@@ -487,6 +611,9 @@ class Competition(HasHeats):
         self.sex: str = str(sex)
         self.heat_cnt: int = int(heat_cnt)
         self._final: bool = bool(final)
+        
+        HasHeats.__init__(self)
+        _Base.__init__(self)
     
     def __str__(self):
         return self.name()
@@ -565,16 +692,18 @@ class Competition(HasHeats):
             return None
 
 
-class Heat(HasLanes):
+class Heat(_Base, HasLanes):
     
     def __init__(self, no: int, competition: [Competition, None] = None):
-        HasLanes.__init__(self)
         self.no: int = int(no)
         # self._lanes: list[Lane] = []
         if competition is None:
             self._competition = None
         else:
             self.competition = competition
+        
+        HasLanes.__init__(self)
+        _Base.__init__(self)
     
     def __str__(self):
         c_no: int = 0
@@ -604,7 +733,7 @@ class Heat(HasLanes):
             return None
 
 
-class Lane:
+class Lane(_Base):
     def __init__(self, no: int, time: datetime.time, athlete: Athlete, heat: [Heat, None]):
         self.no: int = int(no)
         self.time: datetime.time = time
@@ -614,6 +743,8 @@ class Lane:
         
         if heat:
             self.heat = heat
+            
+        _Base.__init__(self)
     
     def __str__(self):
         return fr'Bahn {self.no} - {str(self.athlete)} - {self.time}'
