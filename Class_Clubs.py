@@ -70,7 +70,7 @@ class _Registry:
         return self.entry.instance
     
     def __repr__(self):
-        return f"ObjectCollector({self._instance})"
+        return f"Registry[{self.entry.name}]({self.entry.instance})"
 
 class _Base:
     _registry: [None, _Registry] = None
@@ -90,6 +90,10 @@ class _Base:
         
     def __repr__(self):
         return f"{self.__class__.__name__}()"
+    
+    def remove(self):
+        self.__del__()
+        
 
 class Collection(_Base):
     
@@ -98,44 +102,48 @@ class Collection(_Base):
         _Base.__init__(self, name)
     
     @property
-    def associations(self) -> dict:
-        return self._get_dict(Association)
+    def associations(self) -> list:
+        return self._get_list(Association)
     
     @property
-    def clubs(self) -> dict:
-        return self._get_dict(Club)
+    def clubs(self) -> list:
+        return self._get_list(Club)
     
     @property
-    def sections(self) -> dict:
-        return self._get_dict(Section)
+    def sections(self) -> list:
+        return self._get_list(Section)
     
     @property
-    def years(self) -> dict:
-        return self._get_dict(Year)
+    def years(self) -> list:
+        return self._get_list(Year)
     
     @property
-    def judges(self) -> dict:
-        return self._get_dict(Judge)
+    def judges(self) -> list:
+        return self._get_list(Judge)
     
     @property
-    def athletes(self):
-        return self._get_dict(Athlete)
+    def athletes(self) -> list:
+        return self._get_list(Athlete)
     
     @property
-    def competitions(self):
-        return self._get_dict(Competition)
+    def competitions(self) -> list:
+        return self._get_list(Competition)
     
     @property
-    def heats(self):
-        return self._get_dict(Heat)
+    def heats(self) -> list:
+        return self._get_list(Heat)
     
     @property
-    def lanes(self):
-        return self._get_dict(Lane)
+    def lanes(self) -> list:
+        return self._get_list(Lane)
 
-    def _get_dict(self, obj_type):
+    def _get_list(self, obj_type) -> list:
         self._set_active()
-        return self._registry.get_all(obj_type)
+        ret_list = self._registry.get_all(obj_type)
+        if ret_list == self._registry.entry.instance:
+            return []
+        else:
+            return ret_list
 
     def _set_active(self):
         if not self._registry.entry.is_active(self._name):
@@ -143,6 +151,72 @@ class Collection(_Base):
 
     def __str__(self) -> str:
         return fr'Collection({self._name})'
+
+class SpecialCollection(Collection):
+    
+    def competition_by_no(self, value: int):
+        return self._by_no(value, self.competitions)
+    
+    def competitions_dict(self) -> dict:
+        return dict(map(lambda x: (x.no, x), self.competitions))
+    
+    def sections_by_no(self, value: int):
+        return self._by_no(value, self.sections)
+    
+    def sections_dict(self) -> dict:
+        return dict(map(lambda x: (x.no, x), self.sections))
+    
+    def club_by_name(self, value: str):
+        return self._by_name(value, self.clubs)
+    
+    def clubs_dict(self):
+        return dict(map(lambda x: (x.no, x), self.clubs))
+    
+    def athletes_by_name(self, value):
+        pass
+    
+    def athletes_by_year(self, value):
+        pass
+    
+    def athlete_by_club(self, value):
+        pass
+    
+    def athletes_dict(self):
+        pass
+    
+    def get_year(self, year: int):
+        if type(year) != int:
+            raise ValueError
+        if self.years:
+            for y in self.years:
+                if y.year == year:
+                    return y
+        return None
+        
+    @staticmethod
+    def _by_no(no: int, objects: list):
+        if type(no) != int:
+            raise ValueError
+        if objects:
+            values = [item for item in objects if item.no == no]
+            if values:
+                return values[0]
+            
+        return None
+    
+    @staticmethod
+    def _by_name(name: str, objects: list, single_obj: bool = True):
+        if type(name) != str:
+            raise ValueError
+        if objects:
+            values = [item for item in objects if item.name == name]
+            if values:
+                if single_obj:
+                    return values[0]
+                else:
+                    return values
+        
+        return None
 
 # ----- Base Class Area -----
 
@@ -248,22 +322,6 @@ class HasJudges:
             self._judges.remove(value)
 
 
-# class HasSections:
-#     def __init__(self):
-#         self._sections: list = []
-#
-#     @property
-#     def section(self) -> list:
-#         return self._sections
-#
-#     def add_section(self, value):
-#         if not value in self._sections:
-#             self._sections.append(value)
-#
-#     def remove_section(self, value):
-#         if value in self._sections:
-#             self._sections.remove(value)
-
 class HasCompetitions:
     def __init__(self):
         self._competitions: list = []
@@ -307,6 +365,12 @@ class Quantity:
     def __str__(self):
         return fr'{self._value[self.__first_enty_name]} / {self._value[self.__second_entry_name]}'
     
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}('
+        tmp += fr'{self._first_enty_name}={self._value[self._first_enty_name]}, '
+        tmp += fr'{self._second_entry_name}={self._value[self._second_entry_name]}'
+        return tmp + ')'
+    
     def __check_kwargs(self, kwargs: dict):
         if len(kwargs) != 0:
             for key, value in kwargs.items():
@@ -324,7 +388,7 @@ class Quantity:
                 raise ValueError
     
     def to_list(self) -> list:
-        return [self._value['female'], self._value['male']]
+        return [self._value[self._first_enty_name], self._value[self._first_enty_name]]
     
     def to_dict(self) -> dict:
         return self._value
@@ -410,14 +474,33 @@ class Association(_Base, HasClubs):
             result += fr' [{len(self.clubs)}]'
         return result
     
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}('
+        tmp += fr'{self.name}'
+        if self.dsv_id > 0:
+            tmp += fr', dsv_id={self.dsv_id}'
+        return tmp + ')'
+    
+    # def __del__(self):
+    #     _Base.__del__(self)
+    
     @classmethod
     def from_string(cls, string: str):
         local_id = 0
         parts = string.split('(')
         if len(parts) == 2:
             local_id = int(parts[1][:-1].replace(cls.NO_STRING, ''))
-        
-        return Association(parts[0].strip(), local_id)
+
+        name = parts[0].strip()
+
+        # Check if association still there
+        name_list = [x.name for x in cls._registry.get_all(cls)]
+        if name in name_list:
+            association = cls._registry.get_all(cls)[name_list.index(name)]
+        else:
+            association = cls(name, local_id)
+
+        return association
 
 
 class Club(_Base, HasAthletes, HasOccurrence, HasJudges):
@@ -448,6 +531,19 @@ class Club(_Base, HasAthletes, HasOccurrence, HasJudges):
             result += fr' [ {self.participants} ]'
         return result
     
+    def __del__(self):
+        self.association = None
+        _Base.__del__(self)
+        
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}('
+        tmp += fr'{self.name}'
+        if self.dsv_id:
+            tmp += fr', dsv_id={self.dsv_id}'
+        if self.association:
+            tmp += fr', association={self.association}'
+        return tmp + ')'
+    
     def __eq__(self, other: str):
         return self.name == other
     
@@ -473,11 +569,15 @@ class Club(_Base, HasAthletes, HasOccurrence, HasJudges):
         return Starts([single, relay])
     
     def __setter(self, value, obj):
-        if value:
+        if value and obj:
+            obj.remove_club(self)
+            value.add_club(self)
+        elif value:
             value.add_club(self)
         elif obj:
             obj.remove_club(self)
         return value
+
 
 class Section(_Base, HasCompetitions, HasJudges):
     def __init__(self, no: int):
@@ -487,9 +587,14 @@ class Section(_Base, HasCompetitions, HasJudges):
         HasJudges.__init__(self)
         _Base.__init__(self)
         
-        
     def __str__(self):
         return fr'Abschnitt {self.no}'
+    
+    def __repr__(self):
+        return fr'{self.__class__.__name__}({self.no})'
+    
+    # def __del__(self):
+    #     _Base.__del__(self)
     
 
 class Judge(_Base):
@@ -513,6 +618,21 @@ class Judge(_Base):
         
         return fr'[{no}] {self.position} ({self.name}){club}'
     
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}('
+        tmp += fr'{self.position}, '
+        tmp += fr'{self.name}'
+        if self.club:
+            tmp += fr', club={self.club}'
+        if self.section:
+            tmp += fr', section={self.section}'
+        return tmp + ')'
+    
+    def __del__(self):
+        self.section = None
+        self.club = None
+        _Base.__del__(self)
+    
     @property
     def section(self) -> [Section, None]:
         return self._section
@@ -530,12 +650,14 @@ class Judge(_Base):
         self._club = self.__setter(value, self._club)
     
     def __setter(self, value, obj):
-        if value:
+        if value and obj:
+            obj.remove_judge(self)
+            value.add_judge(self)
+        elif value:
             value.add_judge(self)
         elif obj:
             obj.remove_judge(self)
         return value
-
 
 class Year(_Base, HasOccurrence, HasAthletes):
     def __init__(self, year: int):
@@ -544,14 +666,19 @@ class Year(_Base, HasOccurrence, HasAthletes):
         HasOccurrence.__init__(self)
         HasAthletes.__init__(self)
         _Base.__init__(self)
-        
+    
+    def __str__(self):
+        return str(self._year)
+    
+    def __repr__(self):
+        return fr'{self.__class__.__name__}({str(self)})'
+    
+    # def __del__(self):
+    #     _Base.__del__(self)
     
     @property
     def year(self):
         return self._year
-    
-    def __str__(self):
-        return str(self._year)
 
 class Athlete(_Base, HasLanes, HasOccurrence):
     def __init__(self, name: str, year: [Year, None], club: [Club, None] = None):
@@ -573,6 +700,20 @@ class Athlete(_Base, HasLanes, HasOccurrence):
             club_text = fr' {self.club.name}'
         return fr'{self.name} ({self.year}){club_text}'
     
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}('
+        tmp += fr'{self.name}'
+        if self.year:
+            tmp += fr', year={self.year}'
+        if self.club:
+            tmp += fr', club={self.club}'
+        return tmp + ')'
+    
+    def __del__(self):
+        self.year = None
+        self.club = None
+        _Base.__del__(self)
+    
     @property
     def year(self) -> [Year, None]:
         return self._year
@@ -590,12 +731,14 @@ class Athlete(_Base, HasLanes, HasOccurrence):
         self._club = self.__setter(value, self._club)
     
     def __setter(self, value, obj):
-        if value:
+        if value and obj:
+            obj.remove_athlete(self)
+            value.add_athlete(self)
+        elif value:
             value.add_athlete(self)
         elif obj:
             obj.remove_athlete(self)
         return value
-
 
 class Competition(_Base, HasHeats):
     
@@ -617,6 +760,22 @@ class Competition(_Base, HasHeats):
     
     def __str__(self):
         return self.name()
+    
+    def __repr__(self):
+        if self.text:
+            return fr'{self.__class__.__name__}({self.text})'
+        else:
+            tmp = fr'{self.__class__.__name__}('
+            tmp += fr'no={self.no}, '
+            if self.repetition > 0:
+                tmp += fr'repetition={self.repetition}, '
+            tmp += fr'distance={self.distance}, '
+            tmp += fr'discipline={self.discipline}'
+        return tmp + ')'
+    
+    def __del__(self):
+        self.section = None
+        _Base.__del__(self)
     
     def name(self, with_heat: bool = False) -> str:
         if self.text != '':
@@ -685,9 +844,16 @@ class Competition(_Base, HasHeats):
                 heat_cnt = int(sub_match.group(1))
             
             is_final: bool = FINAL_STR in string
-            
-            return cls(no=int(match.group(1)), distance=distance, discipline=match.group(3), sex=match.group(4),
+
+            no = int(match.group(1))
+            # check if in list
+            no_list = [x.no for x in cls._registry.get_all(cls)]
+            if no in no_list:
+                competition = cls._registry.get_all(cls)[no_list.index(no)]
+            else:
+                competition = cls(no=no, distance=distance, discipline=match.group(3), sex=match.group(4),
                        text=string, section=section, repetition=repetition, heat_cnt=heat_cnt, final=is_final)
+            return competition
         else:
             return None
 
@@ -711,17 +877,34 @@ class Heat(_Base, HasLanes):
             c_no = self.competition.no
         return fr'WK{c_no:02d}/L{self.no:02d} [{len(self._lanes)}]'
     
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}({self.no}'
+        if self.competition:
+            tmp += fr', {self.competition}'
+        return tmp + ')'
+    
+    def __del__(self):
+        self.competition = None
+        _Base.__del__(self)
+    
     @property
     def competition(self) -> [Competition, None]:
         return self._competition
     
     @competition.setter
     def competition(self, value: [Competition, None]):
-        if value:
+        self._competition = self.__setter(value, self._competition)
+    
+    def __setter(self, value, obj):
+        if value and obj:
+            obj.remove_heat(self)
             value.add_heat(self)
-        else:
-            self._competition.remove_heat(self)
-        self._competition = value
+        elif value:
+            value.add_heat(self)
+        elif obj:
+            obj.remove_heat(self)
+        return value
+
     
     @classmethod
     def from_string(cls, string: str):
@@ -747,7 +930,24 @@ class Lane(_Base):
         _Base.__init__(self)
     
     def __str__(self):
-        return fr'Bahn {self.no} - {str(self.athlete)} - {self.time}'
+        return fr'Bahn {self.no} - {str(self.athlete)} - {self.time_str}'
+    
+    def __repr__(self):
+        tmp = fr'{self.__class__.__name__}({self.no}, {self.time_str}, {self.athlete}'
+        if self.heat:
+            tmp += fr', {self.heat.no}'
+        return tmp + ')'
+        
+        
+    
+    def __del__(self):
+        self.heat = None
+        self.athlete = None
+        _Base.__del__(self)
+        
+    @property
+    def time_str(self) -> str:
+        return fr'{self.time.strftime("%M:%S,")}{int(self.time.strftime("%f"))/10000}'
     
     @property
     def heat(self) -> Heat:
@@ -766,7 +966,10 @@ class Lane(_Base):
         self._athlete = self.__setter(value, self._athlete)
     
     def __setter(self, value, obj):
-        if value:
+        if value and obj:
+            obj.remove_lane(self)
+            value.add_lane(self)
+        elif value:
             value.add_lane(self)
         elif obj:
             obj.remove_lane(self)

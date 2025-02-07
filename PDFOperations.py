@@ -6,6 +6,7 @@ from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTAnno, LTItem
 
 from pypdf import PdfReader, PdfWriter, PageObject
+from pypdf.generic import DictionaryObject, NameObject, ArrayObject, FloatObject
 
 CLUB_STR: str = 'Verein'
 LANE_STR: str = 'Bahn'
@@ -96,15 +97,8 @@ class PDFFile:
     
     def __init__(self, pdf_file):
         self._pdf_file: str
-        self.collection: Collection
+        self.collection: SpecialCollection
         self.pdf_file = pdf_file
-        
-        self.clubs: dict = {}
-        self.competitions: dict = {}
-        self.competition_sequenz: list = []
-        self.sections: dict = {}
-        self.athletes: dict = {}
-        self.years: dict = {}
         pass
     
     @property
@@ -115,9 +109,78 @@ class PDFFile:
     def pdf_file(self, value: str):
         if os.path.exists(value):
             self._pdf_file = os.path.abspath(value)
-            self.collection = Collection(os.path.basename(self._pdf_file))
+            self.collection = SpecialCollection(os.path.basename(self._pdf_file))
         else:
             raise ValueError
+    
+    def highlight_annotation(self, output_file: str, occurrences: list[PDFText], color: int, start_perc: int, end_perc: int, offset_px: int):
+        # Read the input PDF using PyPDF2
+        reader = PdfReader(self.pdf_file)
+        writer = PdfWriter()
+        
+        page_no = 0
+        page = reader.pages[page_no]
+        width = page.mediabox[2]
+        height = page.mediabox[3]
+        
+        start_pos = float(width) * (start_perc/100)
+        end_pos = float(width) * (end_perc/100)
+        
+        i = 0
+        for page_no in range(1,reader.get_num_pages()):
+            page = reader.pages[page_no]
+            
+            while i < len(occurrences):
+                if occurrences[i].page_no == page_no:
+                    self.__add_highlight_annotation(page, occurrences[i], [float(255/255), float(255/255), float(200/255)], start_pos, end_pos, offset_px)
+                    i+=1
+                else:
+                    break
+                    
+            writer.add_page(page)
+    
+        # Write the modified PDF to the output file
+        with open(output_file, "wb") as fp:
+            writer.write(fp)
+        #print(f"Found {len(occurrences)} occurrence of {search_text}.")
+        print(f"Saved highlighted PDF to {output_file}.")
+    
+    
+    def __add_highlight_annotation(self, page: PageObject, pdf_text: PDFText, rgb_color: list, start_pos: float, end_pos: float, offset_px: int):
+        """
+        Adds a highlight annotation to a PDF page.
+        """
+        # Unpack the bounding box coordinates
+        x0, y0, x1, y1 = pdf_text.bbox
+        x0 = start_pos
+        x1 = end_pos
+
+        # Create a highlight annotation dictionary
+        highlight = DictionaryObject()
+        highlight.update({
+            NameObject("/Type"): NameObject("/Annot"),  # Annotation type
+            NameObject("/Subtype"): NameObject("/Highlight"),  # Highlight annotation subtype
+            NameObject("/Rect"): ArrayObject([
+                FloatObject(x0), FloatObject(y0), FloatObject(x1), FloatObject(y1)
+            ]),  # Rectangle defining the annotation area
+            NameObject("/QuadPoints"): ArrayObject([
+                # Coordinates for the highlight area (quadrilateral points)
+                FloatObject(x0), FloatObject(y1 + offset_px),  # Top-left
+                FloatObject(x1), FloatObject(y1 + offset_px),  # Top-right
+                FloatObject(x0), FloatObject(y0 - offset_px),  # Bottom-left
+                FloatObject(x1), FloatObject(y0 - offset_px)   # Bottom-right
+            ]),
+            # Set color of annotation
+            NameObject("/C"): ArrayObject(
+                [FloatObject(rgb_color[0]), FloatObject(rgb_color[1]), FloatObject(rgb_color[2])]),
+            NameObject("/F"): FloatObject(4),  # Annotation flags (4 = printable)
+        })
+
+        # Add the annotation to the page's annotations list
+        if "/Annots" not in page:
+            page[NameObject("/Annots")] = ArrayObject()
+        page[NameObject("/Annots")].append(highlight)
+    
     
     def read(self):
         # Create file in class
@@ -144,6 +207,7 @@ class PDFFile:
                     break
                 else:
                     find_next = self.__analyse_steps(file_info)
+                
     
     def __analyse_steps(self, file_info: __FileInfo) -> str:
         step = file_info.step
@@ -160,10 +224,12 @@ class PDFFile:
             # Run function
             self.__analyse_clubs(file_info, CNT_ENTRIES_STR, JUDGING_PANEL_STR)
             # Set max section in competition
-            file_info.max_section = len(list(self.clubs.values())[0].starts_by_segments)
+            #file_info.max_section = len(list(self.clubs.values())[0].starts_by_segments)
+            # neu collection
+            file_info.max_section = len(self.collection.clubs[0].starts_by_segments)
             # Create sections
             for i in range(file_info.max_section):
-                self.sections[i+1] = Section(i+1)
+                Section(i+1)
             
             # set next find_str
             next_value = SEGMENTS_STR
@@ -193,21 +259,29 @@ class PDFFile:
             print(fr'Verarbeite Wettkampffolge - Abschnitt {file_info.section_no}')
         elif step == 4:
             file_info.competition_no = self.__analyse_sequenz(file_info, COMPETITION_SEQUENCE)
-            # Set max competition_no for this segment
-            for entry in list(reversed(self.competition_sequenz)):
-                if not entry.is_final():
-                    file_info.max_competition = entry.no
-                    break
-            # Increment page index not start over at heat 1
-            file_info.page_index += 1
             
-            # set next find_str
-            next_value = HEAT_STR + ' 1/'
-            # set next step
-            file_info.step += 1
-            file_info.clear_page_data()
-            # output - for info
-            print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
+            # In case this sections has only finals
+            if file_info.competition_no == -1:
+                # increase section number
+                file_info.section_no += 1
+                # end or go to next
+                next_value = self.__end_or_next_section(file_info)
+            else:
+                # Set max competition_no for this segment
+                for entry in list(reversed(self.collection.competitions)):
+                    if not entry.is_final():
+                        file_info.max_competition = entry.no
+                        break
+                # Increment page index not start over at heat 1
+                file_info.page_index += 1
+                
+                # set next find_str
+                next_value = HEAT_STR + ' 1/'
+                # set next step
+                file_info.step += 1
+                file_info.clear_page_data()
+                # output - for info
+                print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
         elif step == 5:
             file_info.competition_no = self.__analyse_competition(file_info, file_info.competition_no)
             # Decrement page index to make sure to find the competition
@@ -221,30 +295,17 @@ class PDFFile:
                     next_value = JUDGING_PANEL_STR
                 else:
                     # set next find_str - because of last entry find itself
-                    next_value = self.competitions[file_info.competition_no].name()
+                    next_value = self.collection.competition_by_no(file_info.competition_no).name()
                 # Do not change step
                 file_info.clear_page_data()
                 # output - for info
                 print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
             # Create next steps
             elif file_info.competition_no > file_info.max_competition:
-                if file_info.section_no <= file_info.max_section:
-                    # set next find_str
-                    next_value = SEGMENTS_STR
-                    # Set step to judging panel section 2
-                    file_info.step = 2
-                    file_info.clear_page_data()
-                    # output - for info
-                    print(fr'Verarbeite Kampfgericht - Abschnitt {file_info.section_no}')
-                else:
-                    # Dummy value
-                    next_value = '#####'
-                    # End
-                    file_info.step += 1
-                    file_info.clear_page_data()
+                next_value = self.__end_or_next_section(file_info)
             else:
                 # set next find_str
-                next_value = self.competitions[file_info.competition_no + 1].name()
+                next_value = self.collection.competition_by_no(file_info.competition_no + 1).name()
                 # Do not set step but clear data
                 file_info.clear_page_data()
                 # output - for info
@@ -254,6 +315,25 @@ class PDFFile:
             print(fr'Finished')
         
         return next_value
+    
+    @staticmethod
+    def __end_or_next_section(file_info: __FileInfo):
+        if file_info.section_no <= file_info.max_section:
+            # set next find_str
+            next_value = SEGMENTS_STR
+            # Set step to judging panel section 2
+            file_info.step = 2
+            file_info.clear_page_data()
+            # output - for info
+            print(fr'Verarbeite Kampfgericht - Abschnitt {file_info.section_no}')
+        else:
+            # Dummy value
+            next_value = '#####'
+            # End
+            file_info.step = -1
+            file_info.clear_page_data()
+        return next_value
+        
     
     @staticmethod
     def __create_pages_data(page_elements: list, file_info: __FileInfo, stop_value) -> bool:
@@ -373,6 +453,8 @@ class PDFFile:
             index += 1
     
     def __analyse_judging_panel(self, file_info: __FileInfo, start_value: str, stop_value: str):
+        # create club list
+        club_list = [x.name for x in self.collection.clubs]
         # Remove unused values from page
         self.__remove_to_start(file_info, start_value)
         for entry in file_info.pages_data.values():
@@ -380,57 +462,60 @@ class PDFFile:
                 if entry[len(entry) - 1].text != CLUB_STR:
                     # Add club
                     last = entry[len(entry) - 1]
-                    if last.text in self.clubs.keys():
-                        club = self.clubs[last.text]
+                    if last.text in club_list:
+                        index = club_list.index(last.text)
+                        club = self.collection.clubs[index]
                         club.add_occurrence(last)
                     else:
                         club =  self.__generate_club(last)
-                        # self.clubs[club.name] = club
+                        club_list.append(club.name)
                         print(fr'{club} has no swimmer')
                     
                     judge_name = '-'
                     if len(entry) == 3:
                         judge_name = entry[1].text
                     # Create judge
-                    Judge(entry[0].text, judge_name, club, self.sections[file_info.section_no])
+                    Judge(entry[0].text, judge_name, club, self.collection.sections_by_no(file_info.section_no))
             else:
                 # found stop condition
                 if entry[0].text.startswith(stop_value):
                     break
     
     def __analyse_sequenz(self, file_info: __FileInfo, start_value: str) -> int:
-        competition_cnt = 0
-        next_competition = 0
-        
+        next_competition: int = 0
         # Remove unused values from page
         self.__remove_to_start(file_info, start_value)
         
         for entry in file_info.pages_data.values():
-            competition = Competition.from_string(entry[0].text, self.sections[file_info.section_no])
+            competition = Competition.from_string(entry[0].text, self.collection.sections_by_no(file_info.section_no))
             if competition:
-                if not competition.no in list(self.competitions.keys()):
-                    self.competitions[competition.no] = competition
-                    self.competition_sequenz.append(competition)
-                    if competition_cnt == 0:
-                        next_competition = competition.no
+                if self.collection.competitions.index(competition) == len(self.collection.competitions) -1:
                     # In case of final didn't count it has no run
                     if competition.is_final():
                         print(fr'Finale Wettkampf {competition.no} gefunden')
-                    else:
-                        competition_cnt += 1
                 else:
-                    # Stop condition found start competition still in lits
+                    # get next competition which is not final
+                    if competition.is_final():
+                        next_competition = -1
+                        for comp in self.collection.competitions[self.collection.competitions.index(competition)+1:]:
+                            if not comp.is_final():
+                                next_competition = comp.no
+                                break
+                    else:
+                        # Stop condition found start competition still in list
+                        next_competition = competition.no
                     break
         return next_competition
     
     def __analyse_competition(self, file_info: __FileInfo, competition_no: int) -> int:
+        # active competition
+        competition = self.collection.competition_by_no(competition_no)
         # Remove unused values from page
-        self.__remove_to_start(file_info, self.competitions[competition_no].name(), True)
+        self.__remove_to_start(file_info, competition.name(), True)
         
-        competition = self.competitions[competition_no]
-        # still found heat 1 so crete it here
+        # Still no heat found
         heat = None
-        
+        # create heat_zero
         heat_zero = Heat(0)
         
         for entry in file_info.pages_data.values():
@@ -447,18 +532,30 @@ class PDFFile:
                 if competition.is_relay():
                     athlete_text += fr' ({competition.sex})'
                     athlete_name += fr' ({competition.sex})'
-                # Check if athlete still in list
-                if not athlete_text in list(self.athletes.keys()):
-                    self.athletes[athlete_text] = Athlete(athlete_name, year, club)
-                self.athletes[athlete_text].occurrence.append(entry[1])
+                
+                # Check if athlete exist
+                athlete = None
+                athlete_list = self.collection.athletes_by_name(athlete_name)
+                if athlete_list:
+                    if len(athlete_list) > 0:
+                        for a in athlete_list:
+                            if a.club == club and a.year == year:
+                                athlete = a
+                                break
+                    else:
+                        athlete = athlete_list[0]
+                        
+                if not athlete:
+                    # Create Athlete
+                    athlete = Athlete(athlete_name, year, club)
                 
                 # Create lane
                 lane_no = int(entry[0].text.replace(LANE_STR, '').strip())
                 time = datetime.time.fromisoformat(fr'00:{entry[4].text}')
                 if heat:
-                    lane = Lane(lane_no, time, self.athletes[athlete_text], heat)
+                    lane = Lane(lane_no, time, athlete, heat)
                 else:
-                    lane = Lane(lane_no, time, self.athletes[athlete_text], heat_zero)
+                    lane = Lane(lane_no, time, athlete, heat_zero)
             elif len(entry) == 1:
                 # create new heat
                 heat = Heat.from_string(entry[0].text)
@@ -467,11 +564,13 @@ class PDFFile:
                         heat.competition = competition
                 else:
                     tmp_obj = Competition.from_string(entry[0].text)
-                    if tmp_obj and tmp_obj.no in list(self.competitions.keys()):
+                    if tmp_obj:
                         # Ad heat 0 to competition if it has lanes
-                        if heat_zero.no == 0 and len(heat_zero.lanes) > 0:
+                        if len(heat_zero.lanes) > 0:
                             heat_zero.competition = competition
-                        competition = self.competitions[tmp_obj.no]
+                        else:
+                            heat_zero.remove()
+                        competition = tmp_obj
                         # Also end condition - next competition
                         break
             else:
@@ -487,13 +586,10 @@ class PDFFile:
             year_no = int(text_obj.text)
         except:
             year_no = 0
-            
-        if not year_no in list(self.years.keys()):
-            # Create year
+        
+        year = self.collection.get_year(year_no)
+        if not year:
             year = Year(year_no)
-            self.years[year_no] = year
-        else:
-            year = self.years[year_no]
         year.add_occurrence(text_obj)
         return year
     
@@ -517,15 +613,17 @@ class PDFFile:
         return club
     
     def __generate_club(self, text_obj: PDFText, club_id: str = '-', name: str = '') -> Club:
-        if not text_obj.text in list(self.clubs.keys()):
+        # check if club in list
+        club_exist = any(x.name == text_obj.text for x in self.collection.clubs)
+        if not club_exist:
             # Create club
             if name == '':
                 club = Club(text_obj.text, club_id)
             else:
                 club = Club(name, club_id)
-            self.clubs[club.name] = club
         else:
-            club = self.clubs[text_obj.text]
+            index = self.collection.clubs.index(text_obj.text)
+            club = self.collection.clubs[index]
         club.add_occurrence(text_obj)
         return club
         
