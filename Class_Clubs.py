@@ -2,6 +2,7 @@ import re
 import datetime
 
 from Class_Config import Config
+
 FINAL_STR: str = 'Finale'
 
 
@@ -72,7 +73,7 @@ class _Registry:
 
 class _Base:
     _registry: [None, _Registry] = None
-    _config : [None, Config] = None
+    _config: [None, Config] = None
     
     def __init__(self, name: str = '', config: [Config, None] = None):
         self._name = name
@@ -99,7 +100,7 @@ class _Base:
     
     def remove(self):
         self.__del__()
-        
+    
     @property
     def config(self) -> [Config, None]:
         return _Base._config
@@ -108,6 +109,7 @@ class _Base:
     def config(self, value: [Config, None]):
         if value:
             _Base._config = value
+
 
 class Collection(_Base):
     
@@ -803,7 +805,8 @@ class Competition(_Base, HasHeats):
                 return self.text
             else:
                 parts = self.text.split('(')
-                if  self.config.pdf_values.heats in parts[len(parts) - 1] or self.config.pdf_values.heat in parts[len(parts) - 1]:
+                if self.config.pdf_values.heats in parts[len(parts) - 1] or self.config.pdf_values.heat in parts[
+                    len(parts) - 1]:
                     parts = parts[0:len(parts) - 1]
                 return str('('.join(parts)).strip()
         else:
@@ -846,8 +849,10 @@ class Competition(_Base, HasHeats):
     @classmethod
     def from_string(cls, string: str, section: [Section, None] = None):
         if _Base._config:
-            pattern = re.compile(_Base._config.pdf_values.competition + r' (\d+) - (\d+|\d+x\d+)m (.+?) (' + _Base._config.pdf_values.male + r'|' + _Base._config.pdf_values.female + r'|' + _Base._config.pdf_values.mixed + r')(.*)')
-            sub_pat = re.compile(r'.*\((\d+) ('+_Base._config.pdf_values.heats+r'|'+_Base._config.pdf_values.heat+r')\)')
+            pattern = re.compile(
+                _Base._config.pdf_values.competition + r' (\d+) - (\d+|\d+x\d+)m (.+?) (' + _Base._config.pdf_values.male + r'|' + _Base._config.pdf_values.female + r'|' + _Base._config.pdf_values.mixed + r')(.*)')
+            sub_pat = re.compile(
+                r'.*\((\d+) (' + _Base._config.pdf_values.heats + r'|' + _Base._config.pdf_values.heat + r')\)')
         else:
             pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich|mixed)(.*)')
             sub_pat = re.compile(r'.*\((\d+) (Läufe|Lauf)\)')

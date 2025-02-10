@@ -1,7 +1,6 @@
 import os
 
 from Class_Clubs import *
-from Class_Config import Config
 
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTAnno, LTItem
@@ -9,17 +8,6 @@ from pdfminer.layout import LTTextContainer, LTChar, LTAnno, LTItem
 from pypdf import PdfReader, PdfWriter, PageObject
 from pypdf.generic import DictionaryObject, NameObject, ArrayObject, FloatObject
 
-CLUB_STR: str = 'Verein'
-LANE_STR: str = 'Bahn'
-COMPETITION: str = 'Wettkampf'
-
-CNT_ENTRIES_STR: str = 'Anzahl Meldungen'
-JUDGING_PANEL_STR: str = 'Kampfgericht'
-SEGMENTS_STR: str = 'Abschnitt'
-COMPETITION_SEQUENCE: str = 'Wettkampffolge'
-HEAT_STR: str = 'Lauf'
-
-NOCH: str = 'noch'
 
 class PDFText:
     def __init__(self, text_container: LTItem, page_no: int):
@@ -93,6 +81,13 @@ class PDFFile:
         self.collection: SpecialCollection
         self.pdf_file = pdf_file
         pass
+    
+    @property
+    def pfd_values(self):
+        if self.collection.config:
+            return self.collection.config.pdf_values
+        else:
+            return None
     
     @property
     def pdf_file(self) -> str:
@@ -186,7 +181,7 @@ class PDFFile:
         print(fr'Analyse file {self._pdf_file}')
         
         # Set next value to find
-        find_next = CNT_ENTRIES_STR
+        find_next = self.pfd_values.entry_cnt
         # Loop through each page in the PDF
         for page_no, page_layout in enumerate(pdf_pages, start=0):
             # Get the current page from the PDF
@@ -208,7 +203,7 @@ class PDFFile:
         next_value: str = ''
         if step == 0:
             # set next find_str
-            next_value = JUDGING_PANEL_STR
+            next_value = self.pfd_values.judging_panel
             # set next step
             file_info.step += 1
             file_info.clear_page_data()
@@ -216,7 +211,7 @@ class PDFFile:
             print(fr'Verarbeite Anzahl der Meldungen')
         elif step == 1:
             # Run function
-            self.__analyse_clubs(file_info, CNT_ENTRIES_STR, JUDGING_PANEL_STR)
+            self.__analyse_clubs(file_info, self.pfd_values.entry_cnt, self.pfd_values.judging_panel)
             # Set max section in competition
             # file_info.max_section = len(list(self.clubs.values())[0].starts_by_segments)
             # neu collection
@@ -226,17 +221,17 @@ class PDFFile:
                 Section(i + 1)
             
             # set next find_str
-            next_value = SEGMENTS_STR
+            next_value = self.pfd_values.segment
             # set next step
             file_info.step += 1
             file_info.clear_page_data()
             # output - for info
             print(fr'Verarbeite Kampfgericht - Abschnitt {file_info.section_no}')
         elif step == 2:
-            self.__analyse_judging_panel(file_info, JUDGING_PANEL_STR, SEGMENTS_STR)
+            self.__analyse_judging_panel(file_info, self.pfd_values.judging_panel, self.pfd_values.segment)
             
             # set next find_str
-            next_value = COMPETITION_SEQUENCE
+            next_value = self.pfd_values.competition_sequenz
             # set next step
             file_info.step += 1
             file_info.clear_page_data()
@@ -245,14 +240,14 @@ class PDFFile:
         elif step == 3:
             
             # set next find_str
-            next_value = HEAT_STR + ' 1/'
+            next_value = self.pfd_values.heat + ' 1/'
             # set next step
             file_info.step += 1
             file_info.clear_page_data()
             # output - for info
             print(fr'Verarbeite Wettkampffolge - Abschnitt {file_info.section_no}')
         elif step == 4:
-            file_info.competition_no = self.__analyse_sequenz(file_info, COMPETITION_SEQUENCE)
+            file_info.competition_no = self.__analyse_sequenz(file_info, self.pfd_values.competition_sequenz)
             
             # In case this sections has only finals
             if file_info.competition_no == -1:
@@ -270,7 +265,7 @@ class PDFFile:
                 file_info.page_index += 1
                 
                 # set next find_str
-                next_value = HEAT_STR + ' 1/'
+                next_value = self.pfd_values.heat + ' 1/'
                 # set next step
                 file_info.step += 1
                 file_info.clear_page_data()
@@ -286,7 +281,7 @@ class PDFFile:
                 file_info.section_no += 1
                 if file_info.section_no <= file_info.max_section:
                     # set next find_str
-                    next_value = JUDGING_PANEL_STR
+                    next_value = self.pfd_values.judging_panel
                 else:
                     # set next find_str - because of last entry find itself
                     next_value = self.collection.competition_by_no(file_info.competition_no).name()
@@ -296,7 +291,7 @@ class PDFFile:
                 print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
             # Create next steps
             elif file_info.competition_no > file_info.max_competition:
-                next_value = self.__end_or_next_section(file_info)
+                next_value = self.__end_or_next_section(file_info, self.pfd_values.segment)
             else:
                 # set next find_str
                 next_value = self.collection.competition_by_no(file_info.competition_no + 1).name()
@@ -311,10 +306,10 @@ class PDFFile:
         return next_value
     
     @staticmethod
-    def __end_or_next_section(file_info: __FileInfo):
+    def __end_or_next_section(file_info: __FileInfo, section_str: str):
         if file_info.section_no <= file_info.max_section:
             # set next find_str
-            next_value = SEGMENTS_STR
+            next_value = section_str
             # Set step to judging panel section 2
             file_info.step = 2
             file_info.clear_page_data()
@@ -397,7 +392,8 @@ class PDFFile:
             entries = file_info.pages_data[keys[index]]
             for i in range(len(entries)):
                 entry = entries[i]
-                if entry.text == CLUB_STR and not file_info.pages_data[keys[index - 1]][0].text.startswith('noch'):
+                if entry.text == self.pfd_values.club and not file_info.pages_data[keys[index - 1]][0].text.startswith(
+                        'noch'):
                     length = len(entries)
                     association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
                     club_index = i
@@ -432,7 +428,7 @@ class PDFFile:
             # Find new association
             for index in range(index, len(keys)):
                 text_list: list = file_info.pages_data[keys[index]]
-                if len(text_list) == length and text_list[club_index].text == CLUB_STR:
+                if len(text_list) == length and text_list[club_index].text == self.pfd_values.club:
                     association_str = file_info.pages_data[keys[index - 1]][0].text
                     if not association_str.startswith('noch') and association_str != 'Gesamtzahl der Meldungen':
                         association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
@@ -452,7 +448,7 @@ class PDFFile:
         self.__remove_to_start(file_info, start_value)
         for entry in file_info.pages_data.values():
             if len(entry) > 1:
-                if entry[len(entry) - 1].text != CLUB_STR:
+                if entry[len(entry) - 1].text != self.pfd_values.club:
                     # Add club
                     last = entry[len(entry) - 1]
                     if last.text in club_list:
@@ -512,7 +508,7 @@ class PDFFile:
         heat_zero = Heat(0)
         
         for entry in file_info.pages_data.values():
-            if len(entry) == 5 and entry[3].text != CLUB_STR:
+            if len(entry) == 5 and entry[3].text != self.pfd_values.club:
                 
                 # Create year
                 year = self.__generate_year(entry[2])
@@ -543,7 +539,7 @@ class PDFFile:
                     athlete = Athlete(athlete_name, year, club)
                 
                 # Create lane
-                lane_no = int(entry[0].text.replace(LANE_STR, '').strip())
+                lane_no = int(entry[0].text.replace(self.pfd_values.lane, '').strip())
                 time = datetime.time.fromisoformat(fr'00:{entry[4].text}')
                 if heat:
                     lane = Lane(lane_no, time, athlete, heat)
