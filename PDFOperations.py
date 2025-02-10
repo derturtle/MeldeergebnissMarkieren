@@ -101,29 +101,45 @@ class PDFFile:
         else:
             raise ValueError
     
-    def highlight_annotation(self, output_file: str, occurrences: list[PDFText], color: int, start_perc: int,
-                             end_perc: int, offset_px: int):
+    def highlight_annotation(self, output_file: str, occurrences: list[PDFText], color: list, start_perc: int = 7,
+                             end_perc: int = 95, offset_px: int = 1):
         # Read the input PDF using PyPDF2
+        if color is None:
+            color = [255, 255, 0]
         reader = PdfReader(self.pdf_file)
         writer = PdfWriter()
-        
+        # check color
+        if len(color) != 3:
+            raise ValueError
+        for i in range(0,len(color)):
+            if color[i] > 255:
+                color[i] = 255
+            elif color[i] < 0:
+                color[i] = 0
+            # convert to float
+            color[i] = float(color[i]) / 255
+        # Correct inputs
+        if start_perc < 0 or start_perc > 100:
+            start_perc = 0
+        if end_perc < 0 or end_perc > 100:
+            end_perc = 100
+        if offset_px < 0:
+            offset_px = 0
+        # Set variables
         page_no = 0
         page = reader.pages[page_no]
         width = page.mediabox[2]
-        height = page.mediabox[3]
-        
+        # Calculate start and end position
         start_pos = float(width) * (start_perc / 100)
         end_pos = float(width) * (end_perc / 100)
-        
+        # loop over pages
         i = 0
         for page_no in range(1, reader.get_num_pages()):
             page = reader.pages[page_no]
             
             while i < len(occurrences):
                 if occurrences[i].page_no == page_no:
-                    self.__add_highlight_annotation(page, occurrences[i],
-                                                    [float(255 / 255), float(255 / 255), float(200 / 255)], start_pos,
-                                                    end_pos, offset_px)
+                    self.__add_highlight_annotation(page, occurrences[i], color, start_pos, end_pos, offset_px)
                     i += 1
                 else:
                     break

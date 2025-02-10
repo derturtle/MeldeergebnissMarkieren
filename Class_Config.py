@@ -19,7 +19,8 @@ __PDF_VALUES: dict = {
 }
 __COLORS: dict = {
     'yellow': '#ffff00',
-    'grey_85': '#d9d9d9',
+    'grey_75': '#bfbfbf',
+    'grey': '#808080',
     'cyan': '#00ffff',
     'green': '#00ff00',
     'lite_green': '#80ff00',
@@ -105,8 +106,8 @@ class _ParseValues:
 class _Colors:
     def __init__(self, colors: dict):
         self._colors = colors
-        self.colors_hex = {}
-        self.colors_rgb = {}
+        self.hex = {}
+        self.rgb = {}
         self._convert_colors()
     
     def _convert_colors(self):
@@ -118,8 +119,8 @@ class _Colors:
             else:
                 hex_value = value.strip()
             dec_value = self._hex_to_dec(hex_value)
-            self.colors_hex[key] = hex_value
-            self.colors_rgb[key] = dec_value
+            self.hex[key] = hex_value
+            self.rgb[key] = dec_value
     
     @staticmethod
     def _hex_to_dec(value: str):
@@ -162,7 +163,4 @@ class Config:
     
     @property
     def colors(self) -> dict:
-        if 'Colors' in list(self._config_dict.keys()):
-            return self._config_dict['Colors']
-        else:
-            return {}
+        return self._colors
