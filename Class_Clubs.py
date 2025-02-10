@@ -1,6 +1,7 @@
 import re
 import datetime
 
+from Class_Config import Config
 FINAL_STR: str = 'Finale'
 
 
@@ -44,16 +45,12 @@ class _Entry:
     def exist(self, value) -> bool:
         return value in list(self._instance.keys())
 
+
 class _Registry:
     def __init__(self, name: [str, None] = None):
-        #self._instance = {}
-        #self.entry : _Entry = _Entry(self._instance, name)
         self.entry: _Entry = _Entry(name)
     
     def add(self, obj):
-        # if type(obj) not in self.entry.instance:
-        #     self.entry.instance[type(obj)] = {}
-        # self.entry.instance[type(obj)][str(obj)] = obj
         self.entry.instance.setdefault(type(obj), []).append(obj)
     
     def remove(self, obj):
@@ -72,34 +69,51 @@ class _Registry:
     def __repr__(self):
         return f"Registry[{self.entry.name}]({self.entry.instance})"
 
+
 class _Base:
     _registry: [None, _Registry] = None
+    _config : [None, Config] = None
     
-    def __init__(self, name: str  = ''):
+    def __init__(self, name: str = '', config: [Config, None] = None):
         self._name = name
         if not _Base._registry:
             _Base._registry = _Registry(name)
         elif name:
             _Base._registry.entry.create(name)
         
+        if not config:
+            if not _Base._config:
+                config = Config()
+            else:
+                config = _Base._config
+        self.config = config
+        
         _Base._registry.add(self)
         self._name = _Base._registry.entry.name
-            
+    
     def __del__(self):
         _Base._registry.remove(self)
-        
+    
     def __repr__(self):
         return f"{self.__class__.__name__}()"
     
     def remove(self):
         self.__del__()
         
+    @property
+    def config(self) -> [Config, None]:
+        return _Base._config
+    
+    @config.setter
+    def config(self, value: [Config, None]):
+        if value:
+            _Base._config = value
 
 class Collection(_Base):
     
-    def __init__(self, name: str):
+    def __init__(self, name: str, config: [Config, None] = None):
         self._name = name
-        _Base.__init__(self, name)
+        _Base.__init__(self, name, config)
     
     @property
     def associations(self) -> list:
@@ -136,7 +150,7 @@ class Collection(_Base):
     @property
     def lanes(self) -> list:
         return self._get_list(Lane)
-
+    
     def _get_list(self, obj_type) -> list:
         self._set_active()
         ret_list = self._registry.get_all(obj_type)
@@ -144,13 +158,14 @@ class Collection(_Base):
             return []
         else:
             return ret_list
-
+    
     def _set_active(self):
         if not self._registry.entry.is_active(self._name):
             self._registry.entry.name = self._name
-
+    
     def __str__(self) -> str:
         return fr'Collection({self._name})'
+
 
 class SpecialCollection(Collection):
     
@@ -192,7 +207,7 @@ class SpecialCollection(Collection):
                 if y.year == year:
                     return y
         return None
-        
+    
     @staticmethod
     def _by_no(no: int, objects: list):
         if type(no) != int:
@@ -201,7 +216,7 @@ class SpecialCollection(Collection):
             values = [item for item in objects if item.no == no]
             if values:
                 return values[0]
-            
+        
         return None
     
     @staticmethod
@@ -217,6 +232,7 @@ class SpecialCollection(Collection):
                     return values
         
         return None
+
 
 # ----- Base Class Area -----
 
@@ -490,16 +506,16 @@ class Association(_Base, HasClubs):
         parts = string.split('(')
         if len(parts) == 2:
             local_id = int(parts[1][:-1].replace(cls.NO_STRING, ''))
-
+        
         name = parts[0].strip()
-
+        
         # Check if association still there
         name_list = [x.name for x in cls._registry.get_all(cls)]
         if name in name_list:
             association = cls._registry.get_all(cls)[name_list.index(name)]
         else:
             association = cls(name, local_id)
-
+        
         return association
 
 
@@ -534,7 +550,7 @@ class Club(_Base, HasAthletes, HasOccurrence, HasJudges):
     def __del__(self):
         self.association = None
         _Base.__del__(self)
-        
+    
     def __repr__(self):
         tmp = fr'{self.__class__.__name__}('
         tmp += fr'{self.name}'
@@ -586,19 +602,19 @@ class Section(_Base, HasCompetitions, HasJudges):
         HasCompetitions.__init__(self)
         HasJudges.__init__(self)
         _Base.__init__(self)
-        
+    
     def __str__(self):
-        return fr'Abschnitt {self.no}'
+        return fr'{self.config.pdf_values.segment} {self.no}'
     
     def __repr__(self):
         return fr'{self.__class__.__name__}({self.no})'
     
     # def __del__(self):
     #     _Base.__del__(self)
-    
+
 
 class Judge(_Base):
-    def __init__(self, position: str, name: str = '-', club: [Club, None] = None, section: [Section,None] = None):
+    def __init__(self, position: str, name: str = '-', club: [Club, None] = None, section: [Section, None] = None):
         self.name = name
         self.position = position
         self._section = None
@@ -607,10 +623,10 @@ class Judge(_Base):
         self.club = club
         
         _Base.__init__(self)
-        
+    
     def __str__(self):
         no = 0
-        club =''
+        club = ''
         if self._section:
             no = self._section.no
         if self.club:
@@ -659,6 +675,7 @@ class Judge(_Base):
             obj.remove_judge(self)
         return value
 
+
 class Year(_Base, HasOccurrence, HasAthletes):
     def __init__(self, year: int):
         self._year: int = int(year)
@@ -680,6 +697,7 @@ class Year(_Base, HasOccurrence, HasAthletes):
     def year(self):
         return self._year
 
+
 class Athlete(_Base, HasLanes, HasOccurrence):
     def __init__(self, name: str, year: [Year, None], club: [Club, None] = None):
         self.name: str = str(name)
@@ -689,7 +707,7 @@ class Athlete(_Base, HasLanes, HasOccurrence):
         self._club: [Club, None] = None
         if club:
             self.club = club
-            
+        
         HasOccurrence.__init__(self)
         HasLanes.__init__(self)
         _Base.__init__(self)
@@ -740,9 +758,11 @@ class Athlete(_Base, HasLanes, HasOccurrence):
             obj.remove_athlete(self)
         return value
 
+
 class Competition(_Base, HasHeats):
     
-    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: [Section, None] = None, text: str = '',
+    def __init__(self, *, no: int, discipline: str, distance: int, sex: str, section: [Section, None] = None,
+                 text: str = '',
                  repetition: int = 0, heat_cnt: int = 0, final: bool = False):
         self.no: int = int(no)
         self._section: [Section, None] = None
@@ -783,19 +803,19 @@ class Competition(_Base, HasHeats):
                 return self.text
             else:
                 parts = self.text.split('(')
-                if 'Läufe' in parts[len(parts) - 1] or 'Lauf' in parts[len(parts) - 1]:
+                if  self.config.pdf_values.heats in parts[len(parts) - 1] or self.config.pdf_values.heat in parts[len(parts) - 1]:
                     parts = parts[0:len(parts) - 1]
                 return str('('.join(parts)).strip()
         else:
-            result: str = fr'Wettkampf {self.no} - '
+            result: str = fr'{self.config.pdf_values.competition} {self.no} - '
             if self.repetition != 0:
                 result += fr'{self.repetition}x'
             result += fr'{self.distance}m {self.discipline} {self.sex}'
             if with_heat:
                 if len(self.heats) != 1:
-                    result += fr' ({self.heat_cnt} Läufe)'
+                    result += fr' ({self.heat_cnt} {self.config.pdf_values.heats})'
                 else:
-                    result += fr' ({self.heat_cnt} Lauf)'
+                    result += fr' ({self.heat_cnt} {self.config.pdf_values.heat})'
             return result
     
     def is_final(self) -> bool:
@@ -811,7 +831,7 @@ class Competition(_Base, HasHeats):
     @section.setter
     def section(self, value: [None, Section]):
         self._section = self.__setter(value, self._section)
-        
+    
     def __setter(self, value, obj):
         # in case we change value
         if value and obj:
@@ -825,8 +845,12 @@ class Competition(_Base, HasHeats):
     
     @classmethod
     def from_string(cls, string: str, section: [Section, None] = None):
-        pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich|mixed)(.*)')
-        sub_pat = re.compile(r'.*\((\d+) (Läufe|Lauf)\)')
+        if _Base._config:
+            pattern = re.compile(_Base._config.pdf_values.competition + r' (\d+) - (\d+|\d+x\d+)m (.+?) (' + _Base._config.pdf_values.male + r'|' + _Base._config.pdf_values.female + r'|' + _Base._config.pdf_values.mixed + r')(.*)')
+            sub_pat = re.compile(r'.*\((\d+) ('+_Base._config.pdf_values.heats+r'|'+_Base._config.pdf_values.heat+r')\)')
+        else:
+            pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich|mixed)(.*)')
+            sub_pat = re.compile(r'.*\((\d+) (Läufe|Lauf)\)')
         
         match = pattern.match(string)
         if match:
@@ -844,7 +868,7 @@ class Competition(_Base, HasHeats):
                 heat_cnt = int(sub_match.group(1))
             
             is_final: bool = FINAL_STR in string
-
+            
             no = int(match.group(1))
             # check if in list
             no_list = [x.no for x in cls._registry.get_all(cls)]
@@ -852,7 +876,8 @@ class Competition(_Base, HasHeats):
                 competition = cls._registry.get_all(cls)[no_list.index(no)]
             else:
                 competition = cls(no=no, distance=distance, discipline=match.group(3), sex=match.group(4),
-                       text=string, section=section, repetition=repetition, heat_cnt=heat_cnt, final=is_final)
+                                  text=string, section=section, repetition=repetition, heat_cnt=heat_cnt,
+                                  final=is_final)
             return competition
         else:
             return None
@@ -904,11 +929,13 @@ class Heat(_Base, HasLanes):
         elif obj:
             obj.remove_heat(self)
         return value
-
     
     @classmethod
     def from_string(cls, string: str):
-        pattern = re.compile(r'Lauf (\d+)(.*)')
+        if _Base._config:
+            pattern = re.compile(_Base._config.pdf_values.heat + r' (\d+)(.*)')
+        else:
+            pattern = re.compile(r'Lauf (\d+)(.*)')
         match = pattern.match(string)
         if match:
             return cls(match.group(1))
@@ -926,28 +953,26 @@ class Lane(_Base):
         
         if heat:
             self.heat = heat
-            
+        
         _Base.__init__(self)
     
     def __str__(self):
-        return fr'Bahn {self.no} - {str(self.athlete)} - {self.time_str}'
+        return fr'{self.config.pdf_values.lane} {self.no} - {str(self.athlete)} - {self.time_str}'
     
     def __repr__(self):
         tmp = fr'{self.__class__.__name__}({self.no}, {self.time_str}, {self.athlete}'
         if self.heat:
             tmp += fr', {self.heat.no}'
         return tmp + ')'
-        
-        
     
     def __del__(self):
         self.heat = None
         self.athlete = None
         _Base.__del__(self)
-        
+    
     @property
     def time_str(self) -> str:
-        return fr'{self.time.strftime("%M:%S,")}{int(self.time.strftime("%f"))/10000}'
+        return fr'{self.time.strftime("%M:%S,")}{int(self.time.strftime("%f")) / 10000:02d}'
     
     @property
     def heat(self) -> Heat:

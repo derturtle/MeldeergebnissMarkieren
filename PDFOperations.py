@@ -1,6 +1,7 @@
 import os
 
 from Class_Clubs import *
+from Class_Config import Config
 
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTAnno, LTItem
@@ -18,15 +19,7 @@ SEGMENTS_STR: str = 'Abschnitt'
 COMPETITION_SEQUENCE: str = 'Wettkampffolge'
 HEAT_STR: str = 'Lauf'
 
-COMPARE_ENTRIES: list = [
-    CNT_ENTRIES_STR,  # 0
-    JUDGING_PANEL_STR,  # 1
-    SEGMENTS_STR,  # 2 -
-    COMPETITION_SEQUENCE,  # 3
-    HEAT_STR + ' 1/',  # 4
-    HEAT_STR + ' 1/'  # 5
-]
-
+NOCH: str = 'noch'
 
 class PDFText:
     def __init__(self, text_container: LTItem, page_no: int):
@@ -113,7 +106,8 @@ class PDFFile:
         else:
             raise ValueError
     
-    def highlight_annotation(self, output_file: str, occurrences: list[PDFText], color: int, start_perc: int, end_perc: int, offset_px: int):
+    def highlight_annotation(self, output_file: str, occurrences: list[PDFText], color: int, start_perc: int,
+                             end_perc: int, offset_px: int):
         # Read the input PDF using PyPDF2
         reader = PdfReader(self.pdf_file)
         writer = PdfWriter()
@@ -123,30 +117,32 @@ class PDFFile:
         width = page.mediabox[2]
         height = page.mediabox[3]
         
-        start_pos = float(width) * (start_perc/100)
-        end_pos = float(width) * (end_perc/100)
+        start_pos = float(width) * (start_perc / 100)
+        end_pos = float(width) * (end_perc / 100)
         
         i = 0
-        for page_no in range(1,reader.get_num_pages()):
+        for page_no in range(1, reader.get_num_pages()):
             page = reader.pages[page_no]
             
             while i < len(occurrences):
                 if occurrences[i].page_no == page_no:
-                    self.__add_highlight_annotation(page, occurrences[i], [float(255/255), float(255/255), float(200/255)], start_pos, end_pos, offset_px)
-                    i+=1
+                    self.__add_highlight_annotation(page, occurrences[i],
+                                                    [float(255 / 255), float(255 / 255), float(200 / 255)], start_pos,
+                                                    end_pos, offset_px)
+                    i += 1
                 else:
                     break
-                    
+            
             writer.add_page(page)
-    
+        
         # Write the modified PDF to the output file
         with open(output_file, "wb") as fp:
             writer.write(fp)
-        #print(f"Found {len(occurrences)} occurrence of {search_text}.")
+        # print(f"Found {len(occurrences)} occurrence of {search_text}.")
         print(f"Saved highlighted PDF to {output_file}.")
     
-    
-    def __add_highlight_annotation(self, page: PageObject, pdf_text: PDFText, rgb_color: list, start_pos: float, end_pos: float, offset_px: int):
+    def __add_highlight_annotation(self, page: PageObject, pdf_text: PDFText, rgb_color: list, start_pos: float,
+                                   end_pos: float, offset_px: int):
         """
         Adds a highlight annotation to a PDF page.
         """
@@ -154,7 +150,7 @@ class PDFFile:
         x0, y0, x1, y1 = pdf_text.bbox
         x0 = start_pos
         x1 = end_pos
-
+        
         # Create a highlight annotation dictionary
         highlight = DictionaryObject()
         highlight.update({
@@ -168,19 +164,18 @@ class PDFFile:
                 FloatObject(x0), FloatObject(y1 + offset_px),  # Top-left
                 FloatObject(x1), FloatObject(y1 + offset_px),  # Top-right
                 FloatObject(x0), FloatObject(y0 - offset_px),  # Bottom-left
-                FloatObject(x1), FloatObject(y0 - offset_px)   # Bottom-right
+                FloatObject(x1), FloatObject(y0 - offset_px)  # Bottom-right
             ]),
             # Set color of annotation
             NameObject("/C"): ArrayObject(
                 [FloatObject(rgb_color[0]), FloatObject(rgb_color[1]), FloatObject(rgb_color[2])]),
             NameObject("/F"): FloatObject(4),  # Annotation flags (4 = printable)
         })
-
+        
         # Add the annotation to the page's annotations list
         if "/Annots" not in page:
             page[NameObject("/Annots")] = ArrayObject()
         page[NameObject("/Annots")].append(highlight)
-    
     
     def read(self):
         # Create file in class
@@ -207,7 +202,6 @@ class PDFFile:
                     break
                 else:
                     find_next = self.__analyse_steps(file_info)
-                
     
     def __analyse_steps(self, file_info: __FileInfo) -> str:
         step = file_info.step
@@ -224,12 +218,12 @@ class PDFFile:
             # Run function
             self.__analyse_clubs(file_info, CNT_ENTRIES_STR, JUDGING_PANEL_STR)
             # Set max section in competition
-            #file_info.max_section = len(list(self.clubs.values())[0].starts_by_segments)
+            # file_info.max_section = len(list(self.clubs.values())[0].starts_by_segments)
             # neu collection
             file_info.max_section = len(self.collection.clubs[0].starts_by_segments)
             # Create sections
             for i in range(file_info.max_section):
-                Section(i+1)
+                Section(i + 1)
             
             # set next find_str
             next_value = SEGMENTS_STR
@@ -333,7 +327,6 @@ class PDFFile:
             file_info.step = -1
             file_info.clear_page_data()
         return next_value
-        
     
     @staticmethod
     def __create_pages_data(page_elements: list, file_info: __FileInfo, stop_value) -> bool:
@@ -362,7 +355,7 @@ class PDFFile:
                         file_info.page_index = index
                         # Indicate to work on this page
                         next_page = False
-                   
+                    
                     # -- Add entry to page data (no end occurred)
                     # Create an individual key
                     y_pos = file_info.page_no * 1000.0 + txt_obj.y
@@ -467,7 +460,7 @@ class PDFFile:
                         club = self.collection.clubs[index]
                         club.add_occurrence(last)
                     else:
-                        club =  self.__generate_club(last)
+                        club = self.__generate_club(last)
                         club_list.append(club.name)
                         print(fr'{club} has no swimmer')
                     
@@ -489,7 +482,7 @@ class PDFFile:
         for entry in file_info.pages_data.values():
             competition = Competition.from_string(entry[0].text, self.collection.sections_by_no(file_info.section_no))
             if competition:
-                if self.collection.competitions.index(competition) == len(self.collection.competitions) -1:
+                if self.collection.competitions.index(competition) == len(self.collection.competitions) - 1:
                     # In case of final didn't count it has no run
                     if competition.is_final():
                         print(fr'Finale Wettkampf {competition.no} gefunden')
@@ -497,7 +490,7 @@ class PDFFile:
                     # get next competition which is not final
                     if competition.is_final():
                         next_competition = -1
-                        for comp in self.collection.competitions[self.collection.competitions.index(competition)+1:]:
+                        for comp in self.collection.competitions[self.collection.competitions.index(competition) + 1:]:
                             if not comp.is_final():
                                 next_competition = comp.no
                                 break
@@ -544,7 +537,7 @@ class PDFFile:
                                 break
                     else:
                         athlete = athlete_list[0]
-                        
+                
                 if not athlete:
                     # Create Athlete
                     athlete = Athlete(athlete_name, year, club)
@@ -626,7 +619,7 @@ class PDFFile:
             club = self.collection.clubs[index]
         club.add_occurrence(text_obj)
         return club
-        
+    
     @staticmethod
     def read_pdf(pdf_file):
         new_class = PDFFile(pdf_file)
