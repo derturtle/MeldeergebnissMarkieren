@@ -87,7 +87,7 @@ class _Base:
                 config = Config()
             else:
                 config = _Base._config
-        self.config = config
+        _Base._config = config
         
         _Base._registry.add(self)
         self._name = _Base._registry.entry.name
@@ -100,16 +100,6 @@ class _Base:
     
     def remove(self):
         self.__del__()
-    
-    @property
-    def config(self) -> [Config, None]:
-        return _Base._config
-    
-    @config.setter
-    def config(self, value: [Config, None]):
-        if value:
-            _Base._config = value
-
 
 class Collection(_Base):
     
@@ -152,6 +142,15 @@ class Collection(_Base):
     @property
     def lanes(self) -> list:
         return self._get_list(Lane)
+    
+    @property
+    def config(self) -> [Config, None]:
+        return _Base._config
+    
+    @config.setter
+    def config(self, value: [Config, None]):
+        if value:
+            _Base._config = value
     
     def _get_list(self, obj_type) -> list:
         self._set_active()
@@ -606,7 +605,7 @@ class Section(_Base, HasCompetitions, HasJudges):
         _Base.__init__(self)
     
     def __str__(self):
-        return fr'{self.config.pdf_values.segment} {self.no}'
+        return fr'{_Base._config.pdf_values.segment} {self.no}'
     
     def __repr__(self):
         return fr'{self.__class__.__name__}({self.no})'
@@ -805,20 +804,20 @@ class Competition(_Base, HasHeats):
                 return self.text
             else:
                 parts = self.text.split('(')
-                if self.config.pdf_values.heats in parts[len(parts) - 1] or self.config.pdf_values.heat in parts[
+                if _Base._config.pdf_values.heats in parts[len(parts) - 1] or _Base._config.pdf_values.heat in parts[
                     len(parts) - 1]:
                     parts = parts[0:len(parts) - 1]
                 return str('('.join(parts)).strip()
         else:
-            result: str = fr'{self.config.pdf_values.competition} {self.no} - '
+            result: str = fr'{_Base._config.pdf_values.competition} {self.no} - '
             if self.repetition != 0:
                 result += fr'{self.repetition}x'
             result += fr'{self.distance}m {self.discipline} {self.sex}'
             if with_heat:
                 if len(self.heats) != 1:
-                    result += fr' ({self.heat_cnt} {self.config.pdf_values.heats})'
+                    result += fr' ({self.heat_cnt} {_Base._config.pdf_values.heats})'
                 else:
-                    result += fr' ({self.heat_cnt} {self.config.pdf_values.heat})'
+                    result += fr' ({self.heat_cnt} {_Base._config.pdf_values.heat})'
             return result
     
     def is_final(self) -> bool:
@@ -963,7 +962,7 @@ class Lane(_Base):
         _Base.__init__(self)
     
     def __str__(self):
-        return fr'{self.config.pdf_values.lane} {self.no} - {str(self.athlete)} - {self.time_str}'
+        return fr'{_Base._config.pdf_values.lane} {self.no} - {str(self.athlete)} - {self.time_str}'
     
     def __repr__(self):
         tmp = fr'{self.__class__.__name__}({self.no}, {self.time_str}, {self.athlete}'
@@ -984,7 +983,7 @@ class Lane(_Base):
     
     @property
     def time_str(self) -> str:
-        return fr'{self.time.strftime("%M:%S,")}{int(self.time.strftime("%f")) / 10000:02d}'
+        return fr'{self.time.strftime("%M:%S,")}{int(int(self.time.strftime("%f")) / 10000):02d}'
     
     @property
     def heat(self) -> Heat:

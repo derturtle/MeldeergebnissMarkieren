@@ -9,6 +9,7 @@ __PDF_VALUES: dict = {
     'club': 'Verein',
     'segment': 'Abschnitt',
     'entry_cnt': 'Anzahl Meldungen',
+    'no_of_entries': 'Gesamtzahl der Meldungen',
     'competition_sequenz': 'Wettkampffolge',
     'judging_panel': 'Kampfgericht',
     'continue_value': 'noch',
@@ -95,6 +96,14 @@ class _ParseValues:
     @property
     def judging_panel(self) -> str:
         return self._chk_key('judging_panel')
+    
+    @property
+    def continue_value(self) -> str:
+        return self._chk_key('continue_value')
+    
+    @property
+    def no_of_entries(self) -> str:
+        return self._chk_key('no_of_entries')
     
     def _chk_key(self, key: str) -> str:
         if key in list(self.parsed_values.keys()):
