@@ -38,7 +38,7 @@ class PDFText:
         return self.bbox[2] - self.bbox[0]
     
     @property
-    def hight(self) -> float:
+    def height(self) -> float:
         return self.bbox[3] - self.bbox[1]
 
 
@@ -270,7 +270,7 @@ class PDFFile:
                 # increase section number
                 file_info.section_no += 1
                 # end or go to next
-                next_value = self.__end_or_next_section(file_info)
+                next_value = self.__end_or_next_section(file_info, self.pfd_values.segment)
             else:
                 # Set max competition_no for this segment
                 for entry in list(reversed(self.collection.competitions)):
@@ -524,12 +524,21 @@ class PDFFile:
         heat_zero = Heat(0)
         
         for entry in file_info.pages_data.values():
-            if len(entry) == 5 and entry[3].text != self.pfd_values.club:
-                
-                # Create year
-                year = self.__generate_year(entry[2])
-                # Create club
-                club = self.__generate_club(entry[3])
+            # sort by x value because of setting of pdf object sometimes random
+            entry = sorted(entry, key=lambda entry: entry.x)
+            # check for 4 or 5 values and not 4 value is club to identify a lane
+            if 4 <= len(entry) <= 5 and entry[3].text != self.pfd_values.club:
+                # Check entry length
+                if len(entry) == 4:
+                    # In case of four club and year a one
+                    time_str = entry[3].text
+                    year, club = self.__generate_club_year(entry[2])
+                else:
+                    time_str = entry[4].text
+                    # Create year
+                    year = self.__generate_year(entry[2])
+                    # Create club
+                    club = self.__generate_club(entry[3])
                 # Create athlete
                 athlete_text = ' '.join(map(str, entry[1:4]))
                 athlete_name = entry[1].text
@@ -554,13 +563,25 @@ class PDFFile:
                     # Create Athlete
                     athlete = Athlete(athlete_name, year, club)
                 
-                # Create lane
-                lane_no = int(entry[0].text.replace(self.pfd_values.lane, '').strip())
-                time = datetime.time.fromisoformat(fr'00:{entry[4].text}')
-                if heat:
-                    lane = Lane(lane_no, time, athlete, heat)
+                # Check if list ot lane
+                if not heat and self.pfd_values.lane not in entry[0].text:
+                    # list entry
+                    lane_str = entry[0].text.replace('.', '').strip()
+                    # set list entry
+                    list_entry = True
                 else:
-                    lane = Lane(lane_no, time, athlete, heat_zero)
+                    # list entry
+                    lane_str = entry[0].text.replace(self.pfd_values.lane, '').strip()
+                    # set list entry
+                    list_entry = False
+                
+                # Create lane
+                lane_no = int(lane_str)
+                time = datetime.time.fromisoformat(fr'00:{time_str}')
+                if heat:
+                    lane = Lane(lane_no, time, athlete, heat, list_entry)
+                else:
+                    lane = Lane(lane_no, time, athlete, heat_zero, list_entry)
             elif len(entry) == 1:
                 # create new heat
                 heat = Heat.from_string(entry[0].text)
@@ -585,10 +606,24 @@ class PDFFile:
             return competition_no + 1
         else:
             return competition.no
-    
-    def __generate_year(self, text_obj: PDFText) -> Year:
+
+    def __generate_club_year(self, text_obj: PDFText) -> tuple:
+        pattern = re.compile(r'(\d{4})\s(.*)')
+        match = pattern.match(text_obj.text)
+
+        year_str = match.group(1)
+        club_str = match.group(2).strip()
+        year = self.__generate_year(text_obj, year_str)
+        club = self.__generate_club(text_obj, '-', club_str)
+
+        return year, club
+
+    def __generate_year(self, text_obj: PDFText, year_str = '') -> Year:
+        if year_str == '':
+            year_str = text_obj.text
+
         try:
-            year_no = int(text_obj.text)
+            year_no = int(year_str)
         except:
             year_no = 0
         
@@ -619,16 +654,16 @@ class PDFFile:
     
     def __generate_club(self, text_obj: PDFText, club_id: str = '-', name: str = '') -> Club:
         # check if club in list
-        club_exist = any(x.name == text_obj.text for x in self.collection.clubs)
-        if not club_exist:
+        club = next((x for x in self.collection.clubs if x.name == text_obj.text or x.name == name), None)
+        if not club:
             # Create club
             if name == '':
                 club = Club(text_obj.text, club_id)
             else:
                 club = Club(name, club_id)
-        else:
-            index = self.collection.clubs.index(text_obj.text)
-            club = self.collection.clubs[index]
+#        else:
+#            index = self.collection.clubs.index(text_obj.text)
+#            club = self.collection.clubs[index]
         club.add_occurrence(text_obj)
         return club
     

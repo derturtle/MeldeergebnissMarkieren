@@ -182,9 +182,15 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    #Meld_TSG = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
+    Meld_TSG = PDFFile.read_pdf("Meldeergebnis_TSG_2024.pdf")
     Meld_Nikoluas = PDFFile.read_pdf("Meldeergebnis_Nikolaus_2024.pdf")
     Meld_Nikoluas.highlight_annotation("Meldeergebnis_Nikolaus_2024_marked.pdf", Meld_Nikoluas.collection.club_by_name('SV Georgsmarienhütte').occurrence, list(Meld_Nikoluas.collection.config.colors.rgb['grey_75']), 7, 95, 1)
+
+    # Meld_TSG = PDFFile.read_pdf("/home/florian/Downloads/250222-Osnabrueck.pdf")
+    # Meld_TSG.highlight_annotation("/home/florian/Downloads/250222-Osnabrueck_marked.pdf",
+    #                                    Meld_TSG.collection.club_by_name('SV Georgsmarienhütte').occurrence,
+    #                                    list(Meld_TSG.collection.config.colors.rgb['grey_75']), 3, 97, 1)
+    
     a = 1
     exit(0)
     

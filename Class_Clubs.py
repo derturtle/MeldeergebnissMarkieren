@@ -949,8 +949,9 @@ class Heat(_Base, HasLanes):
 
 
 class Lane(_Base):
-    def __init__(self, no: int, time: datetime.time, athlete: Athlete, heat: [Heat, None]):
+    def __init__(self, no: int, time: datetime.time, athlete: Athlete, heat: [Heat, None], list_entry: bool = False):
         self.no: int = int(no)
+        self.list_entry: bool = list_entry
         self.time: datetime.time = time
         self._athlete: [None, Athlete] = None
         self.athlete: Athlete = athlete
@@ -974,6 +975,12 @@ class Lane(_Base):
         self.heat = None
         self.athlete = None
         _Base.__del__(self)
+    
+    def is_lane(self) -> bool:
+        return self.list_entry == False
+    
+    def is_start_list_entry(self) -> bool:
+        return self.list_entry == True
     
     @property
     def time_str(self) -> str:
