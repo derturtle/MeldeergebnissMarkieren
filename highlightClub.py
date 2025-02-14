@@ -186,6 +186,8 @@ if __name__ == '__main__':
     col_2024_tsg = read_pdf("./TestFiles/2024_TSG.pdf")
     col_2025_tsg = read_pdf("./TestFiles/2025_TSG.pdf")
 
+    highlight_pdf("./TestFiles/2025_TSG.pdf", "./TestFiles/2025_TSG_marked.pdf", col_2025_tsg.club_by_name('SV Georgsmarienhütte').occurrence, [255, 255, 0], 3, 97, 1)
+
     # Meld_TSG = PDFFile.read_pdf("/home/florian/Downloads/250222-Osnabrueck.pdf")
     # Meld_TSG.highlight_annotation("/home/florian/Downloads/250222-Osnabrueck_marked.pdf",
     #                                    Meld_TSG.collection.club_by_name('SV Georgsmarienhütte').occurrence,
