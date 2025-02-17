@@ -9,8 +9,47 @@ from pdfminer.layout import LTTextContainer, LTChar, LTAnno
 from pypdf import PdfReader, PdfWriter, PageObject
 from pypdf.generic import DictionaryObject, NameObject, ArrayObject, FloatObject
 
+
 class _FileInfo:
+    """
+    Represents a file information object
+    
+    This objects stores infromation about the parsing of the pdf file. It locally used to share information between
+    different functions
+    
+    Attributes:
+    -----------
+    page_no : int
+        Actual page number
+    step : int
+        The parsing step
+    section_no : int
+        The actual section no which is parsed
+    max_section : int
+        The maximum count of competitions
+    competition_no: int
+        The actual competition number which is parsed
+    max_competition : int
+        The maximum competition number
+    page_index : int
+        Index where to start parsing
+    page_data : dict
+        Stores the Text objects as dictionary by it y-position
+    x_start: float
+        Stores x start value where text starts
+    x_end: float
+        Stores x end value where no text is anymore
+        
+    Methods:
+    --------
+    clear_page_data()
+        Resets the stored page text information
+    header_set()
+        Returns if the header is set
+    """
+    # Default value for header
     HEADER_MAX: float = 10000.0
+    # Default index for pages
     PAGE_INDEX_INIT: int = -1
     
     def __init__(self):
@@ -25,48 +64,79 @@ class _FileInfo:
         self.pages_data: dict = {}
         self.page_index: int = -1
         self.page_header: float = self.HEADER_MAX
+        
+        self.x_start: float = -1.0
+        self.x_end: float = -1.0
     
     @property
     def page_no(self) -> int:
+        """ Returns the page number
+        :return: The page number
+        """
         return self.__page_no
     
     @page_no.setter
     def page_no(self, value: int):
+        """ Set the page number (resets page index)"""
         if self.__page_no != value:
             self.page_index = self.PAGE_INDEX_INIT
             self.__page_no = value
     
     def clear_page_data(self):
+        """ Resets the stored page text information """
         self.pages_data = {}
     
     def header_set(self) -> bool:
+        """ Returns if a header is found and set
+        :return: Header is set
+        """
         return self.page_header != self.HEADER_MAX
     
-# todo mor comments
-def _remove_to_start(file_info: _FileInfo, compare_string: str, precise: bool = False):
-    rm_keys: list = []
-    for key, entry in file_info.pages_data.items():
-        rm_keys.append(key)
-        if len(entry) == 1:
-            if not precise:
-                if entry[0].text.startswith(compare_string):
-                    break
-            else:
-                if entry[0].text == compare_string:
-                    break
-    
-    for key in rm_keys:
-        del file_info.pages_data[key]
+    def remove_to_start(self, compare_string: str, precise: bool = False):
+        """ Removes all page information from page data until compare value is found
+        :type compare_string : str
+        :param compare_string: String to compare
+        :type precise : bool
+        :param precise: Defines it compare should be used as start with (False) or direct match (True)
+        """
+        # List of keys to removed
+        rm_keys: list = []
+        # loop over dictionary
+        for key, entry in self.pages_data.items():
+            # Add key to list
+            rm_keys.append(key)
+            # Check only if in one line only one Text object
+            if len(entry) == 1:
+                if not precise:
+                    # Check starts with and break loop in case of match
+                    if entry[0].text.startswith(compare_string):
+                        break
+                else:
+                    # Check for a match and break loop in case of match
+                    if entry[0].text == compare_string:
+                        break
+        # Remove all keys from dictionary
+        for key in rm_keys:
+            del self.pages_data[key]
+
 
 def _end_or_next_section(file_info: _FileInfo, section_str: str):
+    """ Checks if scanning ends or next section scanning should start
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type section_str: :tr
+    :param section_str: Defines the next value to be searched (section)
+    :return: The Next value which should be found in pdf
+    """
     if file_info.section_no <= file_info.max_section:
         # set next find_str
         next_value = section_str
         # Set step to judging panel section 2
         file_info.step = 2
         file_info.clear_page_data()
-        #todo change str
-        print(fr'Verarbeite Kampfgericht - Abschnitt {file_info.section_no}')
+        # Print information
+        print(
+            fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Judging panel - Section {file_info.section_no}')
     else:
         # Dummy value
         next_value = '#####'
@@ -75,26 +145,46 @@ def _end_or_next_section(file_info: _FileInfo, section_str: str):
         file_info.clear_page_data()
     return next_value
 
-#todo add comments
+
 def _generate_club_year(collection: SpecialCollection, text_obj: PDFText) -> tuple:
+    """ Generates club and year from a single object type
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type text_obj: PDFText
+    :param text_obj: Object with the text
+    :return:
+    """
+    # Create scanning pattern for regex
     pattern = re.compile(r'(\d{4})\s(.*)')
     match = pattern.match(text_obj.text)
-
+    # In case of match
     if match:
+        # Create strings for year and club
         year_str = match.group(1)
         club_str = match.group(2).strip()
     else:
         # found a relay with no year
         year_str = '0'
         club_str = text_obj.text.strip()
-        
+    # Generate year and club
     year = _generate_year(collection, text_obj, year_str)
     club = _generate_club(collection, text_obj, '-', club_str)
-
     return year, club
 
+
 def _generate_club(collection: SpecialCollection, text_obj: PDFText, club_id: str = '-', name: str = '') -> Club:
-    # check if club in list
+    """ Generates a new club object (if not still available)
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type text_obj: PDFText
+    :param text_obj: Object with the text
+    :type club_id; str
+    :param club_id: The club id
+    :type name: str
+    :param name: Name of the Club
+    :return: A club object
+    """
+    # check if club in list with name and pdf text
     club = next((x for x in collection.clubs if x.name == text_obj.text or x.name == name), None)
     if not club:
         # Create club
@@ -102,25 +192,53 @@ def _generate_club(collection: SpecialCollection, text_obj: PDFText, club_id: st
             club = Club(text_obj.text, club_id)
         else:
             club = Club(name, club_id)
+    # Add PDF object as occurrence to club
     club.add_occurrence(text_obj)
     return club
 
-#todo add comments
+
 def _generate_year(collection: SpecialCollection, text_obj: PDFText, year_str='') -> Year:
+    """ Generates a new year object (if not still available)
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type text_obj: PDFText
+    :param text_obj: Object with the text
+    :type year_str: str
+    :param year_str: The number of the year as string
+    :return: A year object
+    """
+    # Check if there is no year string
     if year_str == '':
+        # Set text ob text obj as year string
         year_str = text_obj.text
     try:
+        # Try to made int from string
         year_no = int(year_str)
     except:
+        # otherwise set year to 0
         year_no = 0
-    
+    # Check if year is available in collection
     year = collection.get_year(year_no)
     if not year:
+        # In case year is not available create it
         year = Year(year_no)
+    # Add PDF object as occurrence to year
     year.add_occurrence(text_obj)
     return year
 
+
 def _create_club(collection: SpecialCollection, text_obj_line: list, association: Association, name: str = '') -> Club:
+    """ Creates the club from a text line
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type text_obj_line: list
+    :param text_obj_line: PDFtext object as list
+    :type association: Association
+    :param association: The club belongs to this association
+    :type name: str
+    :param name: Name of the Club
+    :return: A club object
+    """
     # Create club
     club = _generate_club(collection, text_obj_line[0], text_obj_line[1].text, name)
     # add association
@@ -138,9 +256,19 @@ def _create_club(collection: SpecialCollection, text_obj_line: list, association
             tmp.append(int(part.strip()))
         club.starts_by_segments.append(Starts(tmp))
     return club
-    
-#todo more comments
+
+
 def _analyse_clubs(file_info: _FileInfo, collection: SpecialCollection, start_value: str, stop_value: str):
+    """ Check the listed clubs, participants and starts
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type start_value: str
+    :param start_value: The value to where to start scanning
+    :type stop_value: str
+    :param stop_value: The end value which stops analyse
+    """
     pdf_values = collection.config.pdf_values
     # Create variables
     association: [Association, None] = None
@@ -148,69 +276,95 @@ def _analyse_clubs(file_info: _FileInfo, collection: SpecialCollection, start_va
     length: int = 0
     index: int = 0
     # Remove unused values from page
-    _remove_to_start(file_info, start_value)
+    file_info.remove_to_start(start_value)
     # Create key list to loop over values
     keys: list = list(file_info.pages_data.keys())[:-3]
     # get correct cnt and index of club
     while index < len(keys) and club_index == -1:
+        # Get the pdf line
         entries = file_info.pages_data[keys[index]]
+        # loop over every entry
         for i in range(len(entries)):
             entry = entries[i]
-            if entry.text == pdf_values.club and not file_info.pages_data[keys[index - 1]][0].text.startswith(pdf_values.continue_value):
+            # Check if line has a club in it
+            if entry.text == pdf_values.club and not file_info.pages_data[keys[index - 1]][0].text.startswith(
+                    pdf_values.continue_value):
                 length = len(entries)
+                # Found association, create ir from line
                 association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
+                # end while loop - found club index (in case of numbered clubs it is not 0)
                 club_index = i
+                # end for loop
                 break
         index += 1
-    
+    # Do a debug print
     if club_index != 1:
-        # todo change print
-        print('[Debug] Clubs are not count')
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Debug | Clubs are not numbered')
     else:
-        print('[Debug] Clubs has a number')
-    
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Debug | Clubs are numbered')
+    # loop over all other clubs
     while index < len(keys):
         # Create Clubs - without number
         if club_index != 1:
             for index in range(index, len(keys)):
                 text_list: list = file_info.pages_data[keys[index]]
+                # Create club only length is matching
                 if len(file_info.pages_data[keys[index]]) == length:
+                    # Start club from string list starty by index
                     _create_club(collection, text_list[club_index:], association)
                 else:
+                    # end for loop
                     break
         # Clubs has number and are in one line?
         else:
             for index in range(index, len(keys)):
                 text_list: list = file_info.pages_data[keys[index]]
+                # No. is it own element
                 if len(file_info.pages_data[keys[index]]) == length:
                     _create_club(collection, text_list[club_index:], association)
+                # No. and Club name are one text
                 elif len(file_info.pages_data[keys[index]]) == length - 1:
                     name = ' '.join(text_list[0].text.split(' ')[1:])
                     _create_club(collection, text_list, association, name)
                 else:
+                    # end for loop
                     break
         # Find new association
         for index in range(index, len(keys)):
             text_list: list = file_info.pages_data[keys[index]]
+            # in case length match and club is present  in the line
             if len(text_list) == length and text_list[club_index].text == pdf_values.club:
                 association_str = file_info.pages_data[keys[index - 1]][0].text
-                if not association_str.startswith(pdf_values.continue_value) and association_str != pdf_values.no_of_entries:
+                # check if it is relly an association - check for continue value and no of entries
+                if not association_str.startswith(
+                        pdf_values.continue_value) and association_str != pdf_values.no_of_entries:
+                    # Create association from string
                     association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
                 break
             # end in case stop is reached
             elif len(text_list) == 1 and text_list[0].text.startswith(stop_value):
                 index = len(keys)
                 break
-        
         # increment not to stop on last value
         index += 1
-    
+
+
 def _analyse_judging_panel(file_info: _FileInfo, collection: SpecialCollection, start_value: str, stop_value: str):
+    """ Function analyse the judging panel of the section from the competition
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type start_value: str
+    :param start_value: The value to where to start scanning
+    :type stop_value: str
+    :param stop_value: The end value which stops analyse
+    """
     pdf_values = collection.config.pdf_values
     # create club list
     club_list = [x.name for x in collection.clubs]
     # Remove unused values from page
-    _remove_to_start(file_info, start_value)
+    file_info.remove_to_start(start_value)
     for entry in file_info.pages_data.values():
         if len(entry) > 1:
             if entry[len(entry) - 1].text != pdf_values.club:
@@ -223,8 +377,7 @@ def _analyse_judging_panel(file_info: _FileInfo, collection: SpecialCollection, 
                 else:
                     club = _generate_club(collection, last)
                     club_list.append(club.name)
-                    #todo change prinf
-                    print(fr'{club} has no swimmer')
+                    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Debug | {club} has no athlete')
                 
                 judge_name = '-'
                 if len(entry) == 3:
@@ -236,26 +389,41 @@ def _analyse_judging_panel(file_info: _FileInfo, collection: SpecialCollection, 
             if entry[0].text.startswith(stop_value):
                 break
 
-#todo more comments
+
 def _analyse_sequenz(file_info: _FileInfo, collection: SpecialCollection, start_value: str) -> int:
+    """ Function analyse the competition sequenz of one section
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type start_value: str
+    :param start_value: The value to where to start scanning
+    :return next competition no to be analysed
+    """
     next_competition: int = 0
     # Remove unused values from page
-    _remove_to_start(file_info, start_value)
-    
+    file_info.remove_to_start(start_value)
+    # loop over strings (pdf objects)
     for entry in file_info.pages_data.values():
+        # Create competition
         competition = Competition.from_string(entry[0].text, collection.sections_by_no(file_info.section_no))
         if competition:
+            # Check if index last one (newly created)
             if collection.competitions.index(competition) == len(collection.competitions) - 1:
                 # In case of final didn't count it has no run
                 if competition.is_final():
-                    # todo change string
-                    print(fr'Finale Wettkampf {competition.no} gefunden')
+                    print(
+                        fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Found finale: Competition {competition.no}')
+            # Competition still exist (not newly created)
             else:
                 # get next competition which is not final
                 if competition.is_final():
+                    # decrease next competition because final has normally nor heats
                     next_competition = -1
+                    # get next competition which is not final
                     for comp in collection.competitions[collection.competitions.index(competition) + 1:]:
                         if not comp.is_final():
+                            # found first which is not final -> end loop
                             next_competition = comp.no
                             break
                 else:
@@ -263,13 +431,23 @@ def _analyse_sequenz(file_info: _FileInfo, collection: SpecialCollection, start_
                     next_competition = competition.no
                 break
     return next_competition
-    
+
+
 def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, competition_no: int) -> int:
+    """ Function analyse one competition
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :type competition_no: int
+    :param competition_no: No. of competition to be analysed
+    :return next competition no to be analysed
+    """
     pdf_values = collection.config.pdf_values
     # active competition
     competition = collection.competition_by_no(competition_no)
     # Remove unused values from page
-    _remove_to_start(file_info, competition.name(), True)
+    file_info.remove_to_start(competition.name(), True)
     
     # Still no heat found
     heat = None
@@ -337,6 +515,10 @@ def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, co
                 Lane(lane_no, time, athlete, heat, list_entry)
             else:
                 Lane(lane_no, time, athlete, heat_zero, list_entry)
+            # Get left and right x-pos borders
+            if file_info.x_start == -1.0:
+                file_info.x_start = entry[0].bbox[0]
+                file_info.x_end = entry[len(entry) - 1].bbox[2]
         elif len(entry) == 1:
             # create new heat
             heat = Heat.from_string(entry[0].text)
@@ -356,24 +538,40 @@ def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, co
                     break
         else:
             pass
-    
+    # In case there is no competition found
     if competition_no == competition.no:
+        # increase return of competition no
         return competition_no + 1
     else:
         return competition.no
 
+
 def _step_00_check_entry_result(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Step 0 check entry results
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     # set next find_str
     next_value = collection.config.pdf_values.judging_panel
     # set next step
     file_info.step += 1
     file_info.clear_page_data()
     # output - for info
-    # todo replace print
-    print(fr'Verarbeite Anzahl der Meldungen')
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Entry result')
     return next_value
 
+
 def _step_01_check_section(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Step 1 check sections, clubs, participants and starts
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     pdf_values = collection.config.pdf_values
     # Run function
     _analyse_clubs(file_info, collection, pdf_values.entry_cnt, pdf_values.judging_panel)
@@ -388,12 +586,20 @@ def _step_01_check_section(file_info: _FileInfo, collection: SpecialCollection) 
     # set next step
     file_info.step += 1
     file_info.clear_page_data()
-    # todo change printf
-    print(fr'Verarbeite Kampfgericht - Abschnitt {file_info.section_no}')
+    # output - for info
+    print(
+        fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Judging panel - Section {file_info.section_no}')
     return next_value
 
 
 def _step_02_check_judging_panel(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Step 2 check judging panel entries
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     pdf_values = collection.config.pdf_values
     # call function for analysing
     _analyse_judging_panel(file_info, collection, pdf_values.judging_panel, pdf_values.segment)
@@ -402,23 +608,39 @@ def _step_02_check_judging_panel(file_info: _FileInfo, collection: SpecialCollec
     # set next step
     file_info.step += 1
     file_info.clear_page_data()
-    # todo change print
-    print(fr'Verarbeite Abschnitssdaten - Abschnitt {file_info.section_no}')
+    # output - for info
+    print(
+        fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Section data - Section {file_info.section_no}')
     return next_value
 
 
 def _step_03_check_section_data(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Step 3 check section data
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     # set next find_str
     next_value = collection.config.pdf_values.heat + ' 1/'
     # set next step
     file_info.step += 1
     file_info.clear_page_data()
-    # todo change print
-    print(fr'Verarbeite Wettkampffolge - Abschnitt {file_info.section_no}')
+    # output - for info
+    print(
+        fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition sequenz - Section {file_info.section_no}')
     return next_value
 
 
 def _step_04_check_sequenz(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Step 4 check competition sequenz
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     pdf_values = collection.config.pdf_values
     # set competition no
     file_info.competition_no = _analyse_sequenz(file_info, collection, pdf_values.competition_sequenz)
@@ -443,12 +665,20 @@ def _step_04_check_sequenz(file_info: _FileInfo, collection: SpecialCollection) 
         # set next step
         file_info.step += 1
         file_info.clear_page_data()
-        # todo change print
-        print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
+        # output - for info
+        print(
+            fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {file_info.competition_no}')
     return next_value
 
 
 def _step_05_check_competition(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Step 5 check competitions
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     file_info.competition_no = _analyse_competition(file_info, collection, file_info.competition_no)
     # Decrement page index to make sure to find the competition
     file_info.page_index -= 1
@@ -464,8 +694,9 @@ def _step_05_check_competition(file_info: _FileInfo, collection: SpecialCollecti
             next_value = collection.competition_by_no(file_info.competition_no).name()
         # Do not change step
         file_info.clear_page_data()
-        # todo change print
-        print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
+        # output - for info
+        print(
+            fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {file_info.competition_no}')
     # Create next steps
     elif file_info.competition_no > file_info.max_competition:
         next_value = _end_or_next_section(file_info, collection.config.pdf_values.segment)
@@ -474,9 +705,9 @@ def _step_05_check_competition(file_info: _FileInfo, collection: SpecialCollecti
         next_value = collection.competition_by_no(file_info.competition_no + 1).name()
         # Do not set step but clear data
         file_info.clear_page_data()
-        # todo change print
-        print(fr'Verarbeite Wettkampf {file_info.competition_no} ')
-    
+        # output - for info
+        print(
+            fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {file_info.competition_no}')
     return next_value
 
 
@@ -489,8 +720,17 @@ _STEP_LIST: list = [
     _step_05_check_competition
 ]
 
-# todo name bad
-def _create_pages_data(page_elements: list, file_info: _FileInfo, stop_value) -> bool:
+
+def _pages_to_dict_rows(page_elements: list, file_info: _FileInfo, stop_value) -> bool:
+    """ Read page data and put them into a dict list with height as key
+    :type page_elements: list
+    :param page_elements: PDF objects as list
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type stop_value: str
+    :param stop_value: Stop scanning pages
+    :return: Scan next page
+    """
     next_page: bool = True
     # Process each element in the layout of the page
     for index, element in enumerate(page_elements, start=0):
@@ -527,18 +767,32 @@ def _create_pages_data(page_elements: list, file_info: _FileInfo, stop_value) ->
                 # Add page data to list
                 file_info.pages_data[y_pos].append(txt_obj)
     return next_page
-    
+
+
 def _analyse_steps(file_info: _FileInfo, collection: SpecialCollection) -> str:
+    """ Statemachine for the steps to analyse the pdf
+    :type file_info: _FileInfo
+    :param file_info: Information object
+    :type collection: SpecialCollection
+    :param collection: The collection with all objects
+    :return: Next value to be searched in document
+    """
     step = file_info.step
     next_value: str = ''
     if step < 6:
         next_value = _STEP_LIST[step](file_info, collection)
     else:
-        # todo change print
-        print(fr'Finished')
+        # output - for info
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Finished')
     return next_value
 
-def read_pdf(pdf_file: str) -> [Collection, None]:
+
+def read_pdf(pdf_file: str) -> ([Collection, None], list):
+    """ Read the pdf file
+    :type pdf_file: str
+    :param pdf_file: Path of the pdf file
+    :return: A collection with all found objects
+    """
     # ---- File checks -----
     # use full path
     pdf_file = os.path.abspath(pdf_file)
@@ -556,36 +810,49 @@ def read_pdf(pdf_file: str) -> [Collection, None]:
     
     # Extract pages
     pdf_pages = extract_pages(pdf_file)
-    # todo replace with log class
-    print(fr'Analyse file {pdf_file}')
+    # output - Info
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Analyse file:')
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {pdf_file}')
     
     # Set next value to find
     find_next = pdf_values.entry_cnt
     # Loop through each page in the PDF
     for page_no, page_layout in enumerate(pdf_pages, start=0):
-        # todo replace with log class
         # Get the current page from the PDF
-        print(fr'Read page {page_no + 1:02d}')
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Reading: page {page_no + 1:02d}')
         # Set page no
         file_info.page_no = page_no
         # Loop over data
         while True:
             # Create next page and check if another page should be read
-            if _create_pages_data(list(page_layout), file_info, find_next):
+            if _pages_to_dict_rows(list(page_layout), file_info, find_next):
                 # stop "while True" loop -> continue for loop -> next page
                 break
             else:
                 find_next = _analyse_steps(file_info, collection)
+    return collection, [file_info.x_start, file_info.x_end]
+
+
+def _add_highlight_annotation(page: PageObject, pdf_text: PDFText, rgb_color: list, start_pos: float, end_pos: float,
+                              offset_px: int):
+    """ Adds a highlight annotation to a PDF page.
+    :type page: PageObject
+    :param page: PDF page to add the annotation to
+    :type pdf_text: PDFText
+    :param pdf_text: Object to be annotated
+    :type rgb_color: list
+    :param rgb_color: Color in rgb for the color of the annotation
+    :type start_pos: float
+    :param start_pos: Start (x-pos) of annotation
+    :type end_pos: float
+    :param end_pos: End (x-pos) of annotation
+    :type offset_px: int
+    :param offset_px: Offset in px to resize annotation
+    """
     
-    return collection
-
-
-def _add_highlight_annotation(page: PageObject, pdf_text: PDFText, rgb_color: list, start_pos: float, end_pos: float, offset_px: int):
-    """
-    Adds a highlight annotation to a PDF page.
-    """
     # Unpack the bounding box coordinates
     x0, y0, x1, y1 = pdf_text.bbox
+    # Override x0 and x1
     x0 = start_pos
     x1 = end_pos
     
@@ -614,8 +881,26 @@ def _add_highlight_annotation(page: PageObject, pdf_text: PDFText, rgb_color: li
     if "/Annots" not in page:
         page[NameObject("/Annots")] = ArrayObject()
     page[NameObject("/Annots")].append(highlight)
-    
-def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: list, start_perc: int = 7, end_perc: int = 95, offset_px: int = 1):
+
+
+def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: list,
+                  start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
+    """ Add annotations to PDF by occurrences list
+    :type input_pdf: str
+    :param input_pdf: Input pdf file
+    :type output_pdf: str
+    :param output_pdf: Output pdf file
+    :type occurrences: list[PDFtext]
+    :param occurrences: Object list with all the occurrences to highlight
+    :type color: list
+    :param color: Color in rgb for the color of the annotation
+    :type start_pos: [int, float]
+    :param start_pos: Start (x-pos) of annotation  in percent ot as float
+    :type end_pos: [int, float]
+    :param end_pos: End (x-pos) of annotation in percent ot as float
+    :type offset_px: int
+    :param offset_px: Offset in px to resize annotation
+    """
     # ---- File checks -----
     # use full path
     input_pdf = os.path.abspath(input_pdf)
@@ -635,42 +920,62 @@ def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], c
             color[i] = 0
         # convert to float
         color[i] = float(color[i]) / 255
-    # ----- Correct inputs -----
-    if start_perc < 0 or start_perc > 100:
-        start_perc = 0
-    if end_perc < 0 or end_perc > 100:
-        end_perc = 100
-    if offset_px < 0:
-        offset_px = 0
     
     # ----- Start reading -----
     # Read the input PDF using PyPDF2
     reader = PdfReader(input_pdf)
     writer = PdfWriter()
-
+    
     # Set variables
     page_no = 0
     page = reader.pages[page_no]
     width = page.mediabox[2]
-    # Calculate start and end position
-    start_pos = float(width) * (start_perc / 100)
-    end_pos = float(width) * (end_perc / 100)
+    
+    # ----- Calculate and check position -----
+    if type(start_pos) is int:
+        if start_pos < 0 or start_pos > 100:
+            start_pos = 0
+        # Calculate percent to float position
+        pos_x1: float = float(width) * (start_pos / 100)
+    elif type(start_pos) is float:
+        if start_pos < 0.0:
+            start_pos = 0.0
+        pos_x1 = start_pos
+    else:
+        raise ValueError
+    
+    if type(end_pos) is int:
+        if end_pos < 0 or end_pos > 100:
+            end_pos = 100
+        # Calculate percent to float position
+        pos_x2 = float(width) * (end_pos / 100)
+    elif type(end_pos) is float:
+        if end_pos > width:
+            end_pos = width
+        pos_x2 = end_pos
+    else:
+        raise ValueError
+    
+    if offset_px < 0:
+        offset_px = 0
+    
     # loop over pages
     i = 0
     for page_no in range(1, reader.get_num_pages()):
         page = reader.pages[page_no]
-        
+        # loop over all occurrences
         while i < len(occurrences):
             if occurrences[i].page_no == page_no:
-                _add_highlight_annotation(page, occurrences[i], color, start_pos, end_pos, offset_px)
-                i += 1
+                # add annotation only it is on the same page
+                _add_highlight_annotation(page, occurrences[i], color, pos_x1, pos_x2, offset_px)
+                i += 1  # increase index
             else:
-                break
-        
+                break  # break while loop -> go to next page
+        # Add page
         writer.add_page(page)
     
     # Write the modified PDF to the output file
     with open(output_pdf, "wb") as fp:
         writer.write(fp)
-    # print(f"Found {len(occurrences)} occurrence of {search_text}.")
-    print(f"Saved highlighted PDF to {output_pdf}.")
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Saved highlighted PDF to')
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {output_pdf}')
