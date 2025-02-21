@@ -48,63 +48,67 @@ _CONFIG: dict = {
 class _ParseValues:
     def __init__(self, parsed_values: dict):
         self.parsed_values: dict = parsed_values
-    
+
     @property
     def competition(self) -> str:
         return self._chk_key('competition')
-    
+
     @property
     def competition_sequenz(self) -> str:
         return self._chk_key('competition_sequenz')
-    
+
     @property
     def club(self) -> str:
         return self._chk_key('club')
-    
+
     @property
     def heat(self) -> str:
         return self._chk_key('heat')
-    
+
     @property
     def heats(self) -> str:
         return self._chk_key('heats')
-    
+
     @property
     def lane(self) -> str:
         return self._chk_key('lane')
-    
+
     @property
     def segment(self) -> str:
         return self._chk_key('segment')
-    
+
     @property
     def male(self) -> str:
         return self._chk_key('male')
-    
+
     @property
     def female(self) -> str:
         return self._chk_key('female')
-    
+
     @property
     def mixed(self) -> str:
         return self._chk_key('mixed')
-    
+
+    @property
+    def final(self) -> str:
+        return self._chk_key('finale')
+
     @property
     def entry_cnt(self) -> str:
         return self._chk_key('entry_cnt')
-    
+
     @property
     def judging_panel(self) -> str:
         return self._chk_key('judging_panel')
-    
+
     @property
     def continue_value(self) -> str:
         return self._chk_key('continue_value')
-    
+
     @property
     def no_of_entries(self) -> str:
         return self._chk_key('no_of_entries')
-    
+
     def _chk_key(self, key: str) -> str:
         if key in list(self.parsed_values.keys()):
             return self.parsed_values[key]
@@ -118,7 +122,7 @@ class _Colors:
         self.hex = {}
         self.rgb = {}
         self._convert_colors()
-    
+
     def _convert_colors(self):
         for key, value in self._colors.items():
             if value.startswith('#'):
@@ -130,7 +134,7 @@ class _Colors:
             dec_value = self._hex_to_dec(hex_value)
             self.hex[key] = hex_value
             self.rgb[key] = dec_value
-    
+
     @staticmethod
     def _hex_to_dec(value: str):
         if len(value) == 6:
@@ -149,19 +153,19 @@ class Config:
             self._create_config(config_file)
         else:
             self._create_config('.result_config.ini')
-        
+
         self._config_dict = dict(self._config)
-        
+
         if 'PDFParseValues' in list(self._config_dict.keys()):
             self.pdf_values = _ParseValues(dict(self._config_dict['PDFParseValues']))
         else:
             self.pdf_values = _ParseValues({})
-        
+
         if 'Colors' in list(self._config_dict.keys()):
             self._colors = _Colors(dict(self._config_dict['Colors']))
         else:
             self._colors = _Colors({})
-    
+
     def _create_config(self, config_file):
         if os.path.exists(config_file):
             self._config.read(config_file)
@@ -169,7 +173,7 @@ class Config:
             self._config.read_dict(_CONFIG)
             with open(config_file, 'w') as fp:
                 self._config.write(fp)
-    
+
     @property
     def colors(self) -> dict:
         return self._colors

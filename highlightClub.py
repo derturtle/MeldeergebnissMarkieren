@@ -1,10 +1,9 @@
 import os.path
 import argparse
-from email.policy import default
-from math import trunc
 
 from PDFOperations import *
 from Class_Config import *
+from CreateFileOutput import FileType, club_to_file
 
 import webcolors
 
@@ -13,6 +12,7 @@ from pdfminer.layout import LTTextContainer, LTChar, LTTextLine
 from pypdf import PdfReader, PdfWriter, PageObject
 from pypdf.generic import NameObject, DictionaryObject, ArrayObject, FloatObject, TextStringObject
 
+
 class __Occurrence:
     def __init__(self, page: int, x: float, y: float, width: float, height: float):
         self.page = page
@@ -20,11 +20,13 @@ class __Occurrence:
         self.y = y
         self.width = width
         self.height = height
-        
+
     def __str__(self):
         return fr'Page: {self.page} (x: {self.x}, y: {self.y}, width: {self.width}, height: {self.height})'
 
-def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: str, rgb_color: list, start_rect: float, end_rect: float, offset_rect: int):
+
+def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: str, rgb_color: list, start_rect: float,
+                                      end_rect: float, offset_rect: int):
     """
     Finds the position of a specific word in a PDF, highlights its line, and saves a new PDF.
 
@@ -44,7 +46,7 @@ def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: st
     for page_number, page_layout in enumerate(extract_pages(in_pdf), start=0):
         # Get the current page from the PDF
         page = reader.pages[page_number]
-        
+
         # Process each element in the layout of the page
         for element in page_layout:
             if isinstance(element, LTTextContainer):  # Check if the element is a text container
@@ -54,11 +56,15 @@ def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: st
                         # Get the bounding box for the entire line
                         line_bbox = get_printable_area_bbox(text_line, page_layout)
                         # Save occurrence for e.g. log output
-                        occurrences.append(__Occurrence(page_number, line_bbox[0], line_bbox[1], line_bbox[2]-line_bbox[0], line_bbox[3]-line_bbox[1]))
+                        occurrences.append(
+                            __Occurrence(page_number, line_bbox[0], line_bbox[1], line_bbox[2] - line_bbox[0],
+                                         line_bbox[3] - line_bbox[1]))
 
                         # Add a highlight annotation for the line
-                        add_highlight_annotation(page, (page_layout.width * start_rect, line_bbox[1], page_layout.width * end_rect, line_bbox[3]), rgb_color, offset_rect)
-        
+                        add_highlight_annotation(page, (
+                        page_layout.width * start_rect, line_bbox[1], page_layout.width * end_rect, line_bbox[3]),
+                                                 rgb_color, offset_rect)
+
         # Add the processed page to the writer
         writer.add_page(page)
 
@@ -67,6 +73,7 @@ def find_text_positions_and_highlight(in_pdf: str, out_pdf: str, search_text: st
         writer.write(f)
     print(f"Found {len(occurrences)} occurrence of {search_text}.")
     print(f"Saved highlighted PDF to {out_pdf}.")
+
 
 def get_printable_area_bbox(text_line, page_layout):
     """
@@ -81,7 +88,7 @@ def get_printable_area_bbox(text_line, page_layout):
     # Initialize the bounding box coordinates
     line_start_x, line_start_y = float('inf'), float('inf')
     line_end_x, line_end_y = float('-inf'), float('-inf')
-    
+
     # Iterate over each character in the line to determine the bounding box
     for character in text_line:
         if isinstance(character, LTChar):  # Ensure the element is a character
@@ -91,8 +98,8 @@ def get_printable_area_bbox(text_line, page_layout):
             line_end_x = max(line_end_x, x1)
             line_end_y = max(line_end_y, y1)
 
-
     return line_start_x, line_start_y, line_end_x, line_end_y
+
 
 def add_highlight_annotation(page: PageObject, bbox: tuple, rgb_color: list, offset_rect: int):
     """
@@ -117,13 +124,14 @@ def add_highlight_annotation(page: PageObject, bbox: tuple, rgb_color: list, off
         ]),  # Rectangle defining the annotation area
         NameObject("/QuadPoints"): ArrayObject([
             # Coordinates for the highlight area (quadrilateral points)
-            FloatObject(x0), FloatObject(y1+offset_rect),  # Top-left
-            FloatObject(x1), FloatObject(y1+offset_rect),  # Top-right
-            FloatObject(x0), FloatObject(y0-offset_rect),  # Bottom-left
-            FloatObject(x1), FloatObject(y0-offset_rect)   # Bottom-right
+            FloatObject(x0), FloatObject(y1 + offset_rect),  # Top-left
+            FloatObject(x1), FloatObject(y1 + offset_rect),  # Top-right
+            FloatObject(x0), FloatObject(y0 - offset_rect),  # Bottom-left
+            FloatObject(x1), FloatObject(y0 - offset_rect)  # Bottom-right
         ]),
         # Set color of annotation
-        NameObject("/C"): ArrayObject([FloatObject(rgb_color[0]),FloatObject(rgb_color[1]),FloatObject(rgb_color[2])]),
+        NameObject("/C"): ArrayObject(
+            [FloatObject(rgb_color[0]), FloatObject(rgb_color[1]), FloatObject(rgb_color[2])]),
         NameObject("/F"): FloatObject(4),  # Annotation flags (4 = printable)
     })
 
@@ -132,9 +140,11 @@ def add_highlight_annotation(page: PageObject, bbox: tuple, rgb_color: list, off
         page[NameObject("/Annots")] = ArrayObject()
     page[NameObject("/Annots")].append(highlight)
 
-def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yellow', out_pdf = None, start_rect: int = 7, end_rect: int = 95, offset_rect: int = 1):
+
+def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str, list] = 'yellow', out_pdf=None, start_rect: int = 7,
+                     end_rect: int = 95, offset_rect: int = 1):
     rgb_color = []
-    
+
     # Check input path
     if not os.path.exists(in_pdf):
         print(fr'{in_pdf} not exist')
@@ -147,21 +157,21 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
     if search_str == '':
         print(fr'no search string found')
         return 2
-    
+
     # Check color
     if type(color) is str:
-        #Valid rgb value
+        # Valid rgb value
         if len(color) == 7 and color.startswith('#') and color[1:7].isnumeric():
-            rgb_color = [float(i)/255 for i in webcolors.hex_to_rgb(color)]
+            rgb_color = [float(i) / 255 for i in webcolors.hex_to_rgb(color)]
         elif color.lower() in webcolors.names():
-            rgb_color = [float(i)/255 for i in webcolors.name_to_rgb(color)]
+            rgb_color = [float(i) / 255 for i in webcolors.name_to_rgb(color)]
         else:
             print(fr'Color: {color} unknown or wrong type')
             return 3
     elif type(color) is list:
         if len(color) == 3:
             try:
-                rgb_color = [float(i)/255 for i in color]
+                rgb_color = [float(i) / 255 for i in color]
             except ValueError:
                 print(fr'Color: {color} unable to proces value')
                 return 3
@@ -171,48 +181,60 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str,list] = 'yello
                     return 3
     else:
         print(fr'Color: {color} has an unknown type')
-    
+
     # Set output = input
     if out_pdf is None:
         out_pdf = in_pdf
-    
-    find_text_positions_and_highlight(in_pdf, out_pdf, search_str, rgb_color, float(start_rect)/100.0, float(end_rect)/100.0, offset_rect)
 
+    find_text_positions_and_highlight(in_pdf, out_pdf, search_str, rgb_color, float(start_rect) / 100.0,
+                                      float(end_rect) / 100.0, offset_rect)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    col_2024_nicolaus = read_pdf("./TestFiles/2024_Nikolaus.pdf")
-    col_2024_tsg = read_pdf("./TestFiles/2024_TSG.pdf")
-    col_2025_tsg = read_pdf("./TestFiles/2025_TSG.pdf")
+    #col_2024_nicolaus = read_pdf("./TestFiles/2024_Nikolaus.pdf")
+    #col_2024_tsg = read_pdf("./TestFiles/2024_TSG.pdf")
+    col_2025_tsg, borders = read_pdf("./TestFiles/2025_TSG.pdf")
 
-    highlight_pdf("./TestFiles/2025_TSG.pdf", "./TestFiles/2025_TSG_marked.pdf", col_2025_tsg.club_by_name('SV Georgsmarienhütte').occurrence, [255, 255, 0], 3, 97, 1)
+    #to_md('./TestFiles/2025_TSG_SVG.md', col_2025_tsg.club_by_name('SV Georgsmarienhütte'))
+    club_to_file('./TestFiles/2025_TSG_SVG.md', col_2025_tsg.club_by_name('SV Georgsmarienhütte'), FileType.MARKDOWN)
+    club_to_file('./TestFiles/2025_TSG_SVG.html', col_2025_tsg.club_by_name('SV Georgsmarienhütte'), FileType.HTML)
+    club_to_file('./TestFiles/2025_TSG_SVG.txt', col_2025_tsg.club_by_name('SV Georgsmarienhütte'), FileType.TEXT)
+    highlight_pdf("./TestFiles/2025_TSG.pdf", "./TestFiles/2025_TSG_marked.pdf",
+                  col_2025_tsg.club_by_name('SV Georgsmarienhütte').occurrence, [255, 255, 0], borders[0], borders[1], 1)
 
     # Meld_TSG = PDFFile.read_pdf("/home/florian/Downloads/250222-Osnabrueck.pdf")
     # Meld_TSG.highlight_annotation("/home/florian/Downloads/250222-Osnabrueck_marked.pdf",
     #                                    Meld_TSG.collection.club_by_name('SV Georgsmarienhütte').occurrence,
     #                                    list(Meld_TSG.collection.config.colors.rgb['grey_75']), 3, 97, 1)
-    
+
     a = 1
     exit(0)
-    
-    parser = argparse.ArgumentParser(#prog='ProgramName',
-                    description='This program marks clubs like "SV Georgsmarienhütte" in so called "Meldeergebnissen". It is also posiible to mark Person like "Max Mustermann"',
-                    epilog='Created by Florian Grafe form SV Georgsmarienhütte')
-                    #usage="The string describing the program usage (default: generated from arguments added to parser)")
+
+    parser = argparse.ArgumentParser(  # prog='ProgramName',
+        description='This program marks clubs like "SV Georgsmarienhütte" in so called "Meldeergebnissen". It is also posiible to mark Person like "Max Mustermann"',
+        epilog='Created by Florian Grafe form SV Georgsmarienhütte')
+    # usage="The string describing the program usage (default: generated from arguments added to parser)")
     parser.add_argument('input_file', help='The "Meldeergbniss" to mark clubs in')
-    parser.add_argument('club_name', help='The Name of the club which should be marked like "SV Georgsmarienhütte", this should also be possible with Names "Max Mustermann"')
-    #parser.add_argument('-h', '--help', help='Display this help')
-    parser.add_argument('-c', '--color', help='Color of the highlight, e.g. "yellow", "cyan",... or use rgb code like 255,255,0', default='yellow')
+    parser.add_argument('club_name',
+                        help='The Name of the club which should be marked like "SV Georgsmarienhütte", this should also be possible with Names "Max Mustermann"')
+    # parser.add_argument('-h', '--help', help='Display this help')
+    parser.add_argument('-c', '--color',
+                        help='Color of the highlight, e.g. "yellow", "cyan",... or use rgb code like 255,255,0',
+                        default='yellow')
     parser.add_argument('-o', '--output', help='Alternative output file', default=None)
-    parser.add_argument('-ro', '--offset', type=int, help='This makes the highlighted region bigger or smaller depending on the value [Default 1]', default=1)
-    parser.add_argument('-rs', '--start', type=int, help='This defines in percent of the page where the rect starts [Default: 7]', default=7)
-    parser.add_argument('-re', '--end', type=int, help='This defines in percent of the page where the rect end [Default: 95]', default=95)
+    parser.add_argument('-ro', '--offset', type=int,
+                        help='This makes the highlighted region bigger or smaller depending on the value [Default 1]',
+                        default=1)
+    parser.add_argument('-rs', '--start', type=int,
+                        help='This defines in percent of the page where the rect starts [Default: 7]', default=7)
+    parser.add_argument('-re', '--end', type=int,
+                        help='This defines in percent of the page where the rect end [Default: 95]', default=95)
     args = parser.parse_args()
- 
+
     # Check for rgb color and made create aray of it
     if ',' in args.color:
         args.color = args.color.split(',')
-    
-    highlight_in_pdf(args.input_file, args.club_name, out_pdf=args.output, color=args.color, offset_rect=args.offset, start_rect=args.start, end_rect=args.end)
 
+    highlight_in_pdf(args.input_file, args.club_name, out_pdf=args.output, color=args.color, offset_rect=args.offset,
+                     start_rect=args.start, end_rect=args.end)
