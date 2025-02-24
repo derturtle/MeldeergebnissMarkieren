@@ -1,5 +1,5 @@
 import os
-import configparser
+from configparser import ConfigParser, SectionProxy
 
 # Global dictionary for default values could be found in pdf
 __PDF_VALUES: dict = {
@@ -273,6 +273,8 @@ class Config:
 
     Attributes:
     -----------
+    default : SectionProxy
+        Default section of Config
     pdf_values : _ParseValues
         A object with the values to be parsed
     colors : _Colors
@@ -283,7 +285,7 @@ class Config:
         :param config_file: Name of the config file
         """
         # Create config file
-        self._config = configparser.ConfigParser()
+        self._config = ConfigParser()
         if not config_file == '':
             # Read config file
             self._create_config(config_file)
@@ -317,6 +319,10 @@ class Config:
             # and write
             with open(config_file, 'w') as fp:
                 self._config.write(fp)
+
+    @property
+    def default(self) -> SectionProxy:
+        return self._config['Default']
 
     @property
     def colors(self) -> _Colors:
