@@ -1580,11 +1580,13 @@ class Competition(_Base, HasHeats):
             else:
                 # otherwise split text
                 parts = self.text.split('(')
-                # Check if values for heat or heats in the parts
-                if _Base._config.pdf_values.heats in parts[len(parts) - 1] or _Base._config.pdf_values.heat in parts[
-                    len(parts) - 1]:
-                    # Remove the last one
-                    parts = parts[0:len(parts) - 1]
+                
+                for i, part in enumerate(parts):
+                    # Check if values for heat or heats in the parts
+                    if _Base._config.pdf_values.heats in part or _Base._config.pdf_values.heat in part:
+                        # remove everything after heats
+                        parts = parts[:i]
+                        break
                 # return parts joined by (
                 return str('('.join(parts)).strip()
         # No full description available

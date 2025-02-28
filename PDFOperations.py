@@ -494,6 +494,7 @@ def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, co
             if not athlete:
                 # Create Athlete
                 athlete = Athlete(athlete_name, year, club)
+            athlete.add_occurrence(entry[1])
             
             # Check if list ot lane
             if not heat and pdf_values.lane not in entry[0].text:
@@ -520,24 +521,28 @@ def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, co
                 file_info.x_start = entry[0].bbox[0]
                 file_info.x_end = entry[len(entry) - 1].bbox[2]
         elif len(entry) == 1:
-            # create new heat
-            heat = Heat.from_string(entry[0].text)
-            if heat:
-                if competition:
-                    heat.competition = competition
-            else:
-                tmp_obj = Competition.from_string(entry[0].text)
-                if tmp_obj:
-                    # Ad heat 0 to competition if it has lanes
-                    if len(heat_zero.lanes) > 0:
-                        heat_zero.competition = competition
-                    else:
-                        heat_zero.remove()
-                    competition = tmp_obj
-                    # Also end condition - next competition
-                    break
+            # in case line is not lane
+            if not entry[0].text.startswith(collection.config.pdf_values.lane):
+                # create new heat
+                heat = Heat.from_string(entry[0].text)
+                if heat:
+                    if competition:
+                        heat.competition = competition
+                else:
+                    tmp_obj = Competition.from_string(entry[0].text)
+                    if tmp_obj:
+                        competition = tmp_obj
+                        # Also end condition - next competition
+                        break
         else:
             pass
+    
+    # Ad heat 0 to competition if it has lanes
+    if len(heat_zero.lanes) > 0:
+        heat_zero.competition = competition
+    else:
+        heat_zero.remove()
+        
     # In case there is no competition found
     if competition_no == competition.no:
         # increase return of competition no
@@ -582,7 +587,7 @@ def _step_01_check_section(file_info: _FileInfo, collection: SpecialCollection) 
         Section(i + 1)
     
     # set next find_str
-    next_value = pdf_values.segment
+    next_value = fr'{pdf_values.segment} {file_info.section_no}'
     # set next step
     file_info.step += 1
     file_info.clear_page_data()
@@ -731,6 +736,7 @@ def _pages_to_dict_rows(page_elements: list, file_info: _FileInfo, stop_value) -
     :param stop_value: Stop scanning pages
     :return: Scan next page
     """
+    index_found = False
     next_page: bool = True
     # Process each element in the layout of the page
     for index, element in enumerate(page_elements, start=0):
@@ -746,16 +752,19 @@ def _pages_to_dict_rows(page_elements: list, file_info: _FileInfo, stop_value) -
                     # Ignore LTAnno
                     continue
                 txt_obj = PDFText(text_line, file_info.page_no)
-                # -- Check for match - to end scan
-                if index > file_info.page_index and txt_obj.text.startswith(stop_value):
-                    # Match page
-                    if not file_info.header_set():
-                        # Get header - increase to 1 to make sure for test for <
-                        file_info.page_header = txt_obj.bbox[3] + 1
-                    # Set index
-                    file_info.page_index = index
-                    # Indicate to work on this page
-                    next_page = False
+                # Check if index wasn't found
+                if not index_found:
+                    # -- Check for match - to end scan
+                    if index > file_info.page_index and txt_obj.text.startswith(stop_value):
+                        # Match page
+                        if not file_info.header_set():
+                            # Get header - increase to 1 to make sure for test for <
+                            file_info.page_header = txt_obj.bbox[3] + 1
+                        # Set index
+                        file_info.page_index = index
+                        index_found = True
+                        # Indicate to work on this page
+                        next_page = False
                 
                 # -- Add entry to page data (no end occurred)
                 # Create an individual key
@@ -929,6 +938,7 @@ def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], c
     # Set variables
     page_no = 0
     page = reader.pages[page_no]
+    writer.add_page(page)
     width = page.mediabox[2]
     
     # ----- Calculate and check position -----
