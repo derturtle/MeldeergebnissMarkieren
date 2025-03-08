@@ -206,7 +206,6 @@ class _Base:
         """ Removes value from registry """
         self.__del__()
 
-
 class Collection(_Base):
     """
     Represents an object with stored all club classes
@@ -244,6 +243,19 @@ class Collection(_Base):
         self._name = name
         # Initializes base class
         _Base.__init__(self, name, config)
+    
+    def __bool__(self):
+        if self.clubs:
+            return True
+        else:
+            return False
+    
+    @property
+    def name(self) -> str:
+        """ Returns the name of the collection
+        :return: Name of the collection
+        """
+        return self._name
     
     @property
     def associations(self) -> list:
