@@ -33,13 +33,14 @@ __COLORS: dict = {
 }
 # Global dictionary for default values which are not grouped
 __DEFAULT: dict = {
-    'color': 'yellow',
-    'file_ending': '_marked',
-    'default_club': 'SV Georgsmarienhütte',
-    'mark_start': 7,
-    'mark_end': 95,
     'offset': 1
 }
+# 'color': 'yellow',
+# 'club': 'SV Georgsmarienhütte',
+# 'file_ending': '_marked',
+# 'mark_start': 7,
+# 'mark_end': 95,
+
 # Global dictionary for to create default config
 _CONFIG: dict = {
     'Default': __DEFAULT,
@@ -89,6 +90,7 @@ class _ParseValues:
     no_of_entries : str
         Value for finding the no of entries
     """
+
     def __init__(self, parsed_values: dict):
         """ Initializes a new _ParseValues class
         :param parsed_values: The values to be parsed
@@ -222,11 +224,12 @@ class _Colors:
     rgb : dict
         A dictionary with the colors a kex in rgb
     """
-    def __init__(self, colors: dict):
+
+    def __init__(self, colors: SectionProxy):
         """ Initializes a new _Color class
         :param colors: The color values
         """
-        self._colors = colors
+        self._colors: SectionProxy = colors
         self.hex = {}
         self.rgb = {}
         self._convert_colors()
@@ -266,6 +269,57 @@ class _Colors:
         else:
             raise ValueError
 
+    def add(self, name: str, value: str):
+        """ Adds a color to the color collection
+        :param name: Name of color
+        :param value: Value of color
+        """
+        # Check if color is valid
+        value = self.valid_color(value)
+        # In case color is valid
+        if value:
+            # Set name and value to config
+            self._colors[name] = value
+            # Set hex and rgb values
+            self.hex[name] = value[1:]
+            self.rgb[name] = self._hex_to_dec(value[1:])
+
+    @classmethod
+    def valid_color(cls, value: str) -> str:
+        """ Checks if a color is valid
+        :param value: Color as string
+        :return: A hex string as color e.g. #FFFFFF
+        """
+        value: str = value.strip()
+        # RGB
+        if ',' in value:
+            parts = value.split(',')
+            if len(parts) == 3:
+                for i in range(0, len(parts)):
+                    parts[i] = parts[i].strip()
+                    if parts[i].isnumeric() and 0 <= int(parts[i]) <= 255:
+                        try:
+                            parts[i] = fr'{int(parts[i]):02x}'.upper()
+                        except ValueError:
+                            return ''
+                    else:
+                        return ''
+                return fr'#{parts[0]}{parts[1]}{parts[2]}'
+        # Check for 0x
+        if value.startswith('0x'):
+            value = value[2:]
+        # Check for #
+        if value.startswith('#'):
+            value = value[1:]
+        # remove blanc
+        value = value.strip()
+        try:
+            r, g, b = cls._hex_to_dec(value)
+        except ValueError:
+            return ''
+
+        return '#' + value.upper()
+
 
 class Config:
     """
@@ -280,6 +334,7 @@ class Config:
     colors : _Colors
         A object with the available colors
     """
+
     def __init__(self, config_file: str = ''):
         """ Initializes a new config class
         :param config_file: Name of the config file
@@ -289,9 +344,12 @@ class Config:
         if not config_file == '':
             # Read config file
             self._create_config(config_file)
+            self._config_file = config_file
         else:
             # Create config file
             self._create_config('.result_config.ini')
+            self._config_file = '.result_config.ini'
+
         # Config file to dictionary
         self._config_dict = dict(self._config)
         # Set parsed values if available
@@ -300,10 +358,10 @@ class Config:
         else:
             self.pdf_values = _ParseValues({})
         # Set colors if available
-        if 'Colors' in list(self._config_dict.keys()):
-            self._colors = _Colors(dict(self._config_dict['Colors']))
-        else:
-            self._colors = _Colors({})
+        if 'Colors' not in list(self._config_dict.keys()):
+            self._config.add_section('Colors')
+
+        self._colors = _Colors(self._config['Colors'])
 
     def _create_config(self, config_file):
         """ Creates config file
@@ -320,8 +378,16 @@ class Config:
             with open(config_file, 'w') as fp:
                 self._config.write(fp)
 
+    def save(self):
+        """ Save the config """
+        with open(self._config_file, 'w') as fp:
+            self._config.write(fp)
+
     @property
     def default(self) -> SectionProxy:
+        """ Returns the default section
+        :return: Default section
+        """
         return self._config['Default']
 
     @property
