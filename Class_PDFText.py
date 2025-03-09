@@ -41,6 +41,52 @@ class PDFText:
 
     def __str__(self) -> str:
         return self.text
+    
+    def __eq__(self, other):
+        if isinstance(other, PDFText):
+            return self is other
+        elif isinstance(other, str):
+            return str(self) == str(other)
+        return False
+    
+    def __ne__(self, other):
+        return not (self == other)
+    
+    def __lt__(self, other):
+        # Less than comparison (supports: <)
+        if isinstance(other, (PDFText, str)):
+            return str(self) < str(other)
+        return NotImplemented
+    
+    def __le__(self, other):
+        # Less than or equal comparison (supports: <=)
+        if isinstance(other, str):
+            return str(self) <= str(other)
+        return NotImplemented
+    
+    def __gt__(self, other):
+        # Greater than comparison (supports: >)
+        if isinstance(other, str):
+            return str(self) > str(other)
+        return NotImplemented
+    
+    def __ge__(self, other):
+        # Greater than or equal comparison (supports: >=)
+        if isinstance(other, str):
+            return str(self) >= str(other)
+        return NotImplemented
+    
+    # def __len__(self):
+    #     # Length of the string (supports len())
+    #     return len(str(self))
+    
+    # def __contains__(self, item):
+    #     # Supports "in" operation
+    #     return item in str(self)
+    
+    def __getitem__(self, index):
+        # Allows indexing like a string (e.g., obj[0])
+        return str(self)[index]
 
     @property
     def text(self) -> str:
@@ -95,3 +141,4 @@ class PDFText:
         :return: float
         """
         return self.bbox[3] - self.bbox[1]
+    
