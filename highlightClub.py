@@ -192,9 +192,21 @@ def highlight_in_pdf(in_pdf: str, search_str: str, *, color: [str, list] = 'yell
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    #col_2024_nicolaus = read_pdf("./TestFiles/2024_Nikolaus.pdf")
-    #col_2024_tsg = read_pdf("./TestFiles/2024_TSG.pdf")
+    col_2024_tsg, borders = read_pdf("./TestFiles/2024_TSG.pdf")
+    col_kms_2025, borders = read_pdf("./TestFiles/2025_KMS.pdf")
     col_2025_tsg, borders = read_pdf("./TestFiles/2025_TSG.pdf")
+    # color = col_2024_nicolaus.config.colors.valid_color('255,0,0')
+    # if color:
+    #     col_2024_nicolaus.config.colors.add('red', color)
+    # col_2024_nicolaus.config.default['search_path'] = 'abc'
+    # col_2024_nicolaus.config.save()
+    
+    #highlight_pdf_clubs("./TestFiles/2025_TSG.pdf", "./TestFiles/2025_TSG_marked.pdf", [col_2025_tsg.club_by_name('SV Georgsmarienhütte'), col_2025_tsg.club_by_name('VfL Osnabrück')], [col_2025_tsg.config.colors.rgb['yellow'], col_2025_tsg.config.colors.rgb['cyan']], borders[0], borders[1], 1)
+    
+    # club_to_file('/home/florian/Downloads/2025_ksv_03_kmk-me.md', col_kms_2025.club_by_name('SV Georgsmarienhütte'), FileType.MARKDOWN)
+    # club_to_file('/home/florian/Downloads/2025_ksv_03_kmk-me.html', col_kms_2025.club_by_name('SV Georgsmarienhütte'), FileType.HTML)
+    # club_to_file('/home/florian/Downloads/2025_ksv_03_kmk-me.txt', col_kms_2025.club_by_name('SV Georgsmarienhütte'), FileType.TEXT)
+    # highlight_pdf("/home/florian/Downloads/2025_ksv_03_kmk-me.pdf", "/home/florian/Downloads/2025_ksv_03_kmk-me_marked.pdf", col_kms_2025.club_by_name('SV Georgsmarienhütte').occurrence, list(col_kms_2025.config.colors.rgb['grey_75']), borders[0], borders[1], 1)
 
     #to_md('./TestFiles/2025_TSG_SVG.md', col_2025_tsg.club_by_name('SV Georgsmarienhütte'))
     club_to_file('./TestFiles/2025_TSG_SVG.md', col_2025_tsg.club_by_name('SV Georgsmarienhütte'), FileType.MARKDOWN)
