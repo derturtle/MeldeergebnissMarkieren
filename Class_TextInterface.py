@@ -6,7 +6,7 @@ import sys
 from enum import Enum
 
 from Class_Config import Config
-from Class_Clubs import Collection
+from Class_Competition_Objects import Collection
 from PDFOperations import read_pdf, highlight_pdf, highlight_pdf_clubs
 from CreateFileOutput import club_to_file, FileType
 

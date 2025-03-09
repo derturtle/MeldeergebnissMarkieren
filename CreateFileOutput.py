@@ -1,5 +1,5 @@
 from enum import Enum
-from Class_Clubs import *
+from Class_Competition_Objects import *
 
 
 class FileType(Enum):

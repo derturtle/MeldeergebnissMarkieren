@@ -1,6 +1,6 @@
 import os
 
-from Class_Clubs import *
+from Class_Competition_Objects import *
 from Class_PDFText import *
 
 from pdfminer.high_level import extract_pages
