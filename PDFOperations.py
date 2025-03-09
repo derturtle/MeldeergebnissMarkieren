@@ -795,7 +795,6 @@ def _analyse_steps(file_info: _FileInfo, collection: SpecialCollection) -> str:
         print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Finished')
     return next_value
 
-
 def read_pdf(pdf_file: str) -> ([Collection, None], list):
     """ Read the pdf file
     :type pdf_file: str
@@ -811,7 +810,7 @@ def read_pdf(pdf_file: str) -> ([Collection, None], list):
     
     # ---- Start reading -----
     # Generate local variables
-    collection: SpecialCollection = SpecialCollection(os.path.basename(pdf_file))
+    collection: SpecialCollection = SpecialCollection(os.path.abspath(pdf_file))
     # shortcut for pdf values
     pdf_values = collection.config.pdf_values
     # Generate class with file information
@@ -891,8 +890,63 @@ def _add_highlight_annotation(page: PageObject, pdf_text: PDFText, rgb_color: li
         page[NameObject("/Annots")] = ArrayObject()
     page[NameObject("/Annots")].append(highlight)
 
+def _color_check(color: list):
+    """ CHeck if the color is in correct format
+    :param color: Color in RGB as list
+    """
+    # ----- Color check -----
+    if not color:
+        color = [255, 255, 0]
+    # check color
+    if len(color) != 3:
+        raise ValueError(fr'Color is not in RGB format {color}')
+    for i in range(0, len(color)):
+        if color[i] > 255:
+            color[i] = 255
+        elif color[i] < 0:
+            color[i] = 0
+        # convert to float
+        color[i] = float(color[i]) / 255
 
-def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: list,
+def _pos_x1_check(start_pos: [int, float], width: float) -> float:
+    """ Check x1 (start) position of marking
+    :param start_pos: start position
+    :param width: width of page
+    :return: Actual x1 position (start) as float
+    """
+    if type(start_pos) is int:
+        if start_pos < 0 or start_pos > 100:
+            start_pos = 0
+        # Calculate percent to float position
+        return float(width) * (start_pos / 100)
+    elif type(start_pos) is float:
+        if start_pos < 0.0:
+            start_pos = 0.0
+        return start_pos
+    else:
+        raise TypeError('Only float or int are allowed')
+    
+def _pos_x2_check(end_pos: [int, float], width: float) -> float:
+    """ Check x2 (end) position of marking
+    :param end_pos: start position
+    :param width: width of page
+    :return: Actual x2 position (pos) as float
+    """
+    if type(end_pos) is int:
+        if end_pos < 0 or end_pos > 100:
+            end_pos = 100
+        # Calculate percent to float position
+        return float(width) * (end_pos / 100)
+    elif type(end_pos) is float:
+        if end_pos > width:
+            end_pos = width
+        return end_pos
+    else:
+        raise TypeError('Only float or int are allowed')
+    
+    
+
+def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: [list, tuple],
                   start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
     """ Add annotations to PDF by occurrences list
     :type input_pdf: str
@@ -904,9 +958,9 @@ def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], c
     :type color: list
     :param color: Color in rgb for the color of the annotation
     :type start_pos: [int, float]
-    :param start_pos: Start (x-pos) of annotation  in percent ot as float
+    :param start_pos: Start (x-pos) of annotation in percent or as float (direct position)
     :type end_pos: [int, float]
-    :param end_pos: End (x-pos) of annotation in percent ot as float
+    :param end_pos: End (x-pos) of annotation in percent or as float (direct position)
     :type offset_px: int
     :param offset_px: Offset in px to resize annotation
     """
@@ -916,19 +970,11 @@ def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], c
     # Check if file exist
     if not os.path.exists(input_pdf):
         return None
+    
     # ----- Color check -----
-    if not color:
-        color = [255, 255, 0]
-    # check color
-    if len(color) != 3:
-        raise ValueError
-    for i in range(0, len(color)):
-        if color[i] > 255:
-            color[i] = 255
-        elif color[i] < 0:
-            color[i] = 0
-        # convert to float
-        color[i] = float(color[i]) / 255
+    if type(color) is tuple:
+        color = list(color)
+    _color_check(color)
     
     # ----- Start reading -----
     # Read the input PDF using PyPDF2
@@ -942,29 +988,8 @@ def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], c
     width = page.mediabox[2]
     
     # ----- Calculate and check position -----
-    if type(start_pos) is int:
-        if start_pos < 0 or start_pos > 100:
-            start_pos = 0
-        # Calculate percent to float position
-        pos_x1: float = float(width) * (start_pos / 100)
-    elif type(start_pos) is float:
-        if start_pos < 0.0:
-            start_pos = 0.0
-        pos_x1 = start_pos
-    else:
-        raise ValueError
-    
-    if type(end_pos) is int:
-        if end_pos < 0 or end_pos > 100:
-            end_pos = 100
-        # Calculate percent to float position
-        pos_x2 = float(width) * (end_pos / 100)
-    elif type(end_pos) is float:
-        if end_pos > width:
-            end_pos = width
-        pos_x2 = end_pos
-    else:
-        raise ValueError
+    pos_x1 = _pos_x1_check(start_pos, width)
+    pos_x2 = _pos_x2_check(end_pos, width)
     
     if offset_px < 0:
         offset_px = 0
@@ -989,3 +1014,90 @@ def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], c
         writer.write(fp)
     print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Saved highlighted PDF to')
     print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {output_pdf}')
+    
+    pass
+
+def highlight_pdf_clubs(input_pdf: str, output_pdf: str, clubs: list[Club], colors: list[tuple],
+                        start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
+    """ Add annotations to PDF by club occurence
+    :type input_pdf: str
+    :param input_pdf: Input pdf file
+    :type output_pdf: str
+    :param output_pdf: Output pdf file
+    :type clubs: list[Club]
+    :param clubs: A list of clubs which should be annotated
+    :type colors: list[tuple]
+    :param colors: A list of colors for the annotation color for every club
+    :type start_pos: [int, float]
+    :param start_pos: Start (x-pos) of annotation in percent or as float (direct position)
+    :type end_pos: [int, float]
+    :param end_pos: End (x-pos) of annotation in percent or as float (direct position)
+    :type offset_px: int
+    :param offset_px: Offset in px to resize annotation
+    """
+    
+    # ---- File checks -----
+    # use full path
+    input_pdf = os.path.abspath(input_pdf)
+    # Check if file exist
+    if not os.path.exists(input_pdf):
+        return None
+    
+    # ---- File checks -----
+    if len(clubs) != len(colors):
+        raise Exception('clubs and colors must have the same length')
+    
+    occ_dict: dict = {}
+    
+    # check colors
+    for i in range(len(colors)):
+        if type(colors[i]) is not list:
+            colors[i] = list(colors[i])
+        _color_check(colors[i])
+        
+        for occurrence in clubs[i].occurrence:
+            occ_dict[occurrence.page_no*1000 + occurrence.y] = [occurrence, colors[i]]
+            
+    occ_dict = dict(sorted(occ_dict.items())) #sorted(occurrences, key = lambda x : x[0].page_no*1000 + x[0].y)
+    occurrences = list(occ_dict.values())
+        
+    # ----- Start reading -----
+    # Read the input PDF using PyPDF2
+    reader = PdfReader(input_pdf)
+    writer = PdfWriter()
+    
+    # Set variables
+    page_no = 0
+    page = reader.pages[page_no]
+    writer.add_page(page)
+    width = page.mediabox[2]
+    
+    # ----- Calculate and check position -----
+    pos_x1 = _pos_x1_check(start_pos, width)
+    pos_x2 = _pos_x2_check(end_pos, width)
+    
+    if offset_px < 0:
+        offset_px = 0
+    
+    # loop over pages
+    i = 0
+    for page_no in range(1, reader.get_num_pages()):
+        page = reader.pages[page_no]
+        # loop over all occurrences
+        while i < len(occurrences):
+            if occurrences[i][0].page_no == page_no:
+                # add annotation only it is on the same page
+                _add_highlight_annotation(page, occurrences[i][0], occurrences[i][1], pos_x1, pos_x2, offset_px)
+                i += 1  # increase index
+            else:
+                break  # break while loop -> go to next page
+        # Add page
+        writer.add_page(page)
+    
+    # Write the modified PDF to the output file
+    with open(output_pdf, "wb") as fp:
+        writer.write(fp)
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Saved highlighted PDF to')
+    print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {output_pdf}')
+    
+    pass
