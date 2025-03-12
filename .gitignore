@@ -1,9 +1,15 @@
 # Ignore pycharm file
 .idea
+.venv
 venv
+__pycache__
+
+# Ignore generated file
+.result_config.ini
 
 # Ignore Testfiles
 *.pdf
+TestFiles
 
 # Ignore old version
 backup/
