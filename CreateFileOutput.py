@@ -230,7 +230,7 @@ def _starts_end(file_type: FileType) -> str:
     return result
 
 
-def club_to_file(file_name: str, club: Club, file_type: FileType == FileType.NONE):
+def club_to_file(file_name: str, club: Club, file_type: FileType = FileType.NONE):
     """ Generates a file with the club data
     :param file_name: Name of the output file
     :type club: Club
