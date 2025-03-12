@@ -21,15 +21,15 @@ __PDF_VALUES: dict = {
 }
 # Global dictionary for default colors to use
 __COLORS: dict = {
-    'yellow': '#ffff00',
-    'grey_75': '#bfbfbf',
+    'yellow': '#FFFF00',
+    'grey_75': '#BFBFBF',
     'grey': '#808080',
-    'cyan': '#00ffff',
-    'green': '#00ff00',
-    'lite_green': '#80ff00',
-    'lite_blue': '#0080ff',
-    'magenta': '#ff00ff',
-    'orange': '#ff8000'
+    'cyan': '#00FFFF',
+    'green': '#00FF00',
+    'lite_green': '#80FF00',
+    'lite_blue': '#0080FF',
+    'magenta': '#FF00FF',
+    'orange': '#FF8000'
 }
 # Global dictionary for default values which are not grouped
 __DEFAULT: dict = {
