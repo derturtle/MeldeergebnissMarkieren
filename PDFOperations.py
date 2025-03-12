@@ -806,7 +806,7 @@ def read_pdf(pdf_file: str) -> ([Collection, None], list):
     pdf_file = os.path.abspath(pdf_file)
     # Check if file exist
     if not os.path.exists(pdf_file):
-        return None
+        return None, []
     
     # ---- Start reading -----
     # Generate local variables
