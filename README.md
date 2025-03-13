@@ -22,6 +22,7 @@ python -m venv venv
    * windows-curses (nur windows)
 
 *Unix*
+
 Python umgebung starten
 ```commandline
 source ./venv/bin/activate
@@ -32,6 +33,7 @@ pip install argparse pypdf pdfminer.six
 ```
 
 *Windows*
+
 Python umgebung starten
 ```commandline 
 .\venv\Scripts\activate.bat
