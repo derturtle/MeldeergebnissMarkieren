@@ -19,22 +19,29 @@ python -m venv venv
    * argparse
    * pypdf
    * pdfminer.six
+   * windows-curses (nur windows)
 
 *Unix*
+Python umgebung starten
 ```commandline
 source ./venv/bin/activate
 ```
-
-*Windows*
-```commandline 
-./venv/bin/activate.bat
-```
-----
+Packete installieren
 ```commandline
 pip install argparse pypdf pdfminer.six
 ```
 
-6. Run program
+*Windows*
+Python umgebung starten
+```commandline 
+.\venv\Scripts\activate.bat
+```
+Packete installieren
+```commandline
+pip install argparse pypdf pdfminer.six windows-curses
+```
+
+6. Program starten
 ```commandline
 python highlightClub.py
 ```
@@ -94,15 +101,15 @@ funktioniert.
 Hier können eigene Farben definiert werden. Diese sollten in der Form *"Name = #FFFFFF"* angelegt werden, wobei der 
 Farbwert in hex angegeben wird. Folgende Farben werden direkt unterstützt:
 
-* yellow *(#ffff00)*
-* grey_75 *(#bfbfbf)*
+* yellow *(#FFFF00)*
+* grey_75 *(#BFBFBF)*
 * grey *(#808080)*
-* cyan *(#00ffff)*
-* green *(#00ff00)*
-* lite_green *(#80ff00)*
-* lite_blue *(#0080ff)*
-* magenta *(#ff00ff)*
-* orange *(#ff8000)*
+* cyan *(#00FFFF)*
+* green *(#00FF00)*
+* lite_green *(#80FF00)*
+* lite_blue *(#0080FF)*
+* magenta *(#FF00FF)*
+* orange *(#FF8000)*
 
 ### Default
 
@@ -126,4 +133,4 @@ Hier noch ein paar Punkte die eventuell noch folgen:
 ## Fragen, Anregungen, Fehler
 
 Da ich das ganze für mich mache, da ich das selber brauche bin ich für Anregungen und Fragen offen. Sollte es Fehler 
-geben schickt mir bite das Meldeergebnis mit, damit ich es Testen kann!    
+geben schickt mir bitte das Meldeergebnis mit, damit ich es Testen kann!    
