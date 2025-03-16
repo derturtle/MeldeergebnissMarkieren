@@ -1674,12 +1674,12 @@ class Competition(_Base, HasHeats):
         if _Base._config:
             # Create pattern for regex from the object
             pattern = re.compile(
-                _Base._config.pdf_values.competition + r' (\d+) - (\d+|\d+x\d+)m (.+?) (' + _Base._config.pdf_values.male + r'|' + _Base._config.pdf_values.female + r'|' + _Base._config.pdf_values.mixed + r')(.*)')
+                _Base._config.pdf_values.competition + r' (\d+) - (\d+|\d+\s?x\s?\d+)\s?m (.+?) (' + _Base._config.pdf_values.male + r'|' + _Base._config.pdf_values.female + r'|' + _Base._config.pdf_values.mixed + r')(.*)')
             sub_pat = re.compile(
                 r'.*\((\d+) (' + _Base._config.pdf_values.heats + r'|' + _Base._config.pdf_values.heat + r')\)')
         else:
             # POtherwise take the default pattern
-            pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+x\d+)m (.+?) (männlich|weiblich|mixed)(.*)')
+            pattern = re.compile(r'Wettkampf (\d+) - (\d+|\d+\s?x\s?\d+)\s?m (.+?) (männlich|weiblich|mixed)(.*)')
             sub_pat = re.compile(r'.*\((\d+) (Läufe|Lauf)\)')
         # Do regex operation
         match = pattern.match(string)

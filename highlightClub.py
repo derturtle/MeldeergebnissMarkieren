@@ -11,6 +11,7 @@ MAIN_DEBUG: bool = False
 
 def debug_func():
     tests: dict = {
+        "2024_HF":  ['./TestFiles/2024_HF.pdf', None, None],
         "2024_TSG": ['./TestFiles/2024_TSG.pdf', None, None],
         "2025_TSG": ['./TestFiles/2025_TSG.pdf', None, None],
         "2025_KMS": ['./TestFiles/2025_KMS.pdf', None, None],
