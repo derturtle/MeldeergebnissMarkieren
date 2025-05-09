@@ -120,8 +120,8 @@ Hier werden default Einstellungen gespeichert. Folgende Einträge sind möglich 
 * offset - Wenn eine zeile markiert wird, der Offset in Pixeln, Default = 1
 * color - Die Default farbe die ausgewählt wird, Default = yellow
 * club - Der Verein der vorausgewählt ist.
-* color_<N> - Weitere default farben für weitere Vereine
-* club_<N> - Weitere Vereine die ausgewählt werden
+* color_\<n\> - Weitere default farben für weitere Vereine
+* club_\<n\> - Weitere Vereine die ausgewählt werden
 * search_path - Der Pfad in dem die Meldeergebnisse gesucht werden, Default = "Downloads" 
 
 ## Offene Punkte

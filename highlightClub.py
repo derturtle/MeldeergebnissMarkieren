@@ -16,6 +16,7 @@ def debug_func():
         "2025_TSG": ['./TestFiles/2025_TSG.pdf', None, None],
         "2025_KMS": ['./TestFiles/2025_KMS.pdf', None, None],
         "2024_Nikolaus": ['./TestFiles/2024_Nikolaus.pdf', None, None],
+        "2025_BadEssen": ['./TestFiles/2025_BadEssen.pdf', None, None],
     }
     
     for key, value in tests.items():

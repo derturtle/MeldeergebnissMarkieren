@@ -1595,7 +1595,7 @@ class Competition(_Base, HasHeats):
                 
                 for i, part in enumerate(parts):
                     # Check if values for heat or heats in the parts
-                    if _Base._config.pdf_values.heats in part or _Base._config.pdf_values.heat in part:
+                    if _Base._config.pdf_values.heats in part or _Base._config.pdf_values.heat in part or _Base._config.pdf_values.oclock in part:
                         # remove everything after heats
                         parts = parts[:i]
                         break

@@ -6,6 +6,7 @@ __PDF_VALUES: dict = {
     'competition': 'Wettkampf',
     'heat': 'Lauf',
     'heats': 'Läufe',
+    'oclock': 'Uhr',
     'lane': 'Bahn',
     'club': 'Verein',
     'segment': 'Abschnitt',
@@ -67,6 +68,8 @@ class _ParseValues:
         Value for finding a heat
     heats : str
         Value for finding heats
+    oclock : str
+        Value for finding time
     lane : str
         Value for finding a lane
     segment : str
@@ -131,6 +134,13 @@ class _ParseValues:
         :return: Value to identify the value for heats
         """
         return self._chk_key('heats')
+
+    @property
+    def oclock(self) -> str:
+        """ Returns a time name string
+        :return: Value to identify the value for a time
+        """
+        return self._chk_key('oclock')
 
     @property
     def lane(self) -> str:
