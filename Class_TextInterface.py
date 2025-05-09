@@ -1085,14 +1085,20 @@ class TextInterface:
         :param file_name: Name of the file
         :return: Full file name
         """
-        # Check if ending is correct
-        if not file_name.endswith('.pdf'):
-            # Otherwise add it
-            file_name += '.pdf'
+        if file_name.endswith('.pdf'):
+            # remove pdf from file name
+            file_name = file_name[:-4]
+            
         # ----- Replace unwanted characters -----
         file_name = file_name.replace('/', ' ') # remove '/
         file_name = file_name.replace('.', ' ') # remove '.'
         file_name = ' '.join(file_name.split()) # remove more than one ' ' (blanc)
+        
+        # Check if ending is correct
+        if not file_name.endswith('.pdf'):
+            # Otherwise add it
+            file_name += '.pdf'
+        
         # Return full path
         return os.path.abspath(path +'/'+ file_name)
     
