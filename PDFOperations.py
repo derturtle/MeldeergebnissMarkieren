@@ -9,6 +9,7 @@ from pdfminer.layout import LTTextContainer, LTChar, LTAnno
 from pypdf import PdfReader, PdfWriter, PageObject
 from pypdf.generic import DictionaryObject, NameObject, ArrayObject, FloatObject
 
+_DUMMY_VALUE = '#####'
 
 class _FileInfo:
     """
@@ -31,8 +32,6 @@ class _FileInfo:
         The actual competition number which is parsed
     max_competition : int
         The maximum competition number
-    page_index : int
-        Index where to start parsing
     page_data : dict
         Stores the Text objects as dictionary by it y-position
     x_start: float
@@ -62,8 +61,8 @@ class _FileInfo:
         
         self.__page_no: int = self.PAGE_INDEX_INIT
         self.pages_data: dict = {}
-        self.page_index: int = -1
         self.page_header: float = self.HEADER_MAX
+        self.add_next_page: bool = True
         
         self.x_start: float = -1.0
         self.x_end: float = -1.0
@@ -79,13 +78,18 @@ class _FileInfo:
     def page_no(self, value: int):
         """ Set the page number (resets page index)"""
         if self.__page_no != value:
-            self.page_index = self.PAGE_INDEX_INIT
             self.__page_no = value
     
     def clear_page_data(self):
         """ Resets the stored page text information """
-        self.pages_data = {}
-    
+        #self.add_next_page = True
+        #self.pages_data = {}
+        for key in sorted(list(self.pages_data.keys())):
+            if key > self.page_no * 1000.0:
+                break
+            else:
+                del self.pages_data[key]
+        
     def header_set(self) -> bool:
         """ Returns if a header is found and set
         :return: Header is set
@@ -139,7 +143,7 @@ def _end_or_next_section(file_info: _FileInfo, section_str: str):
             fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Judging panel - Section {file_info.section_no}')
     else:
         # Dummy value
-        next_value = '#####'
+        next_value = _DUMMY_VALUE
         # End
         file_info.step = -1
         file_info.clear_page_data()
@@ -212,8 +216,14 @@ def _generate_year(collection: SpecialCollection, text_obj: PDFText, year_str=''
         # Set text ob text obj as year string
         year_str = text_obj.text
     try:
-        # Try to made int from string
-        year_no = int(year_str)
+        if year_str[:4].isnumeric():
+            # Try to made int from string
+            year_no = int(year_str[:4])
+        elif year_str.startswith('AK'):
+            # In case of only AK
+            year_no = int(year_str.replace('AK', '').strip())
+        else:
+            year_no = 0
     except:
         # otherwise set year to 0
         year_no = 0
@@ -290,7 +300,7 @@ def _analyse_clubs(file_info: _FileInfo, collection: SpecialCollection, start_va
             if entry.text == pdf_values.club and not file_info.pages_data[keys[index - 1]][0].text.startswith(
                     pdf_values.continue_value):
                 length = len(entries)
-                # Found association, create ir from line
+                # Found association, create it from line
                 association = Association.from_string(file_info.pages_data[keys[index - 1]][0].text)
                 # end while loop - found club index (in case of numbered clubs it is not 0)
                 club_index = i
@@ -308,7 +318,10 @@ def _analyse_clubs(file_info: _FileInfo, collection: SpecialCollection, start_va
         if club_index != 1:
             for index in range(index, len(keys)):
                 text_list: list = file_info.pages_data[keys[index]]
-                # Create club only length is matching
+                # Check if second element is club -> go on
+                if text_list[0] == pdf_values.club:
+                    continue
+                # Create club only length is matching and first
                 if len(file_info.pages_data[keys[index]]) == length:
                     # Start club from string list starty by index
                     _create_club(collection, text_list[club_index:], association)
@@ -319,6 +332,9 @@ def _analyse_clubs(file_info: _FileInfo, collection: SpecialCollection, start_va
         else:
             for index in range(index, len(keys)):
                 text_list: list = file_info.pages_data[keys[index]]
+                # Check if second element is club -> go on
+                if text_list[1] == pdf_values.club:
+                    continue
                 # No. is it own element
                 if len(file_info.pages_data[keys[index]]) == length:
                     _create_club(collection, text_list[club_index:], association)
@@ -447,7 +463,7 @@ def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, co
     # active competition
     competition = collection.competition_by_no(competition_no)
     # Remove unused values from page
-    file_info.remove_to_start(competition.name(), True)
+    file_info.remove_to_start(competition.name())#, True)
     
     # Still no heat found
     heat = None
@@ -530,7 +546,8 @@ def _analyse_competition(file_info: _FileInfo, collection: SpecialCollection, co
                         heat.competition = competition
                 else:
                     tmp_obj = Competition.from_string(entry[0].text)
-                    if tmp_obj:
+                    # In case object is valid and not a final
+                    if tmp_obj and not tmp_obj.is_final():
                         competition = tmp_obj
                         # Also end condition - next competition
                         break
@@ -662,11 +679,19 @@ def _step_04_check_sequenz(file_info: _FileInfo, collection: SpecialCollection) 
             if not entry.is_final():
                 file_info.max_competition = entry.no
                 break
-        # Increment page index not start over at heat 1
-        file_info.page_index += 1
         
-        # set next find_str
-        next_value = pdf_values.heat + ' 1/'
+        # Create next steps
+        if file_info.competition_no + 1 > file_info.max_competition:
+            next_value = _end_or_next_section(file_info, collection.config.pdf_values.segment)
+        else:
+            # set next find_str
+            next_value = collection.competition_by_no(file_info.competition_no + 1).name()
+        
+        # In case we have a dummy value do not remove
+        if next_value != _DUMMY_VALUE:
+            # remove from list up to next competition
+            file_info.remove_to_start(next_value)
+        
         # set next step
         file_info.step += 1
         file_info.clear_page_data()
@@ -685,8 +710,6 @@ def _step_05_check_competition(file_info: _FileInfo, collection: SpecialCollecti
     :return: Next value to be searched in document
     """
     file_info.competition_no = _analyse_competition(file_info, collection, file_info.competition_no)
-    # Decrement page index to make sure to find the competition
-    file_info.page_index -= 1
     
     if file_info.competition_no == file_info.max_competition:
         # increase section no
@@ -736,46 +759,73 @@ def _pages_to_dict_rows(page_elements: list, file_info: _FileInfo, stop_value) -
     :param stop_value: Stop scanning pages
     :return: Scan next page
     """
-    index_found = False
-    next_page: bool = True
-    # Process each element in the layout of the page
-    for index, element in enumerate(page_elements, start=0):
-        if element.bbox[3] < file_info.page_header and isinstance(element,
-                                                                  LTTextContainer):  # Check if the element is a text container
-            for text_line in element:
-                # LTChar
-                # LTAnno
-                # Represent an actual letter in the text as a Unicode string. Note that, while a LTChar object has
-                # actual boundaries, LTAnno objects does not, as these are "virtual" characters, inserted by a
-                # layout analyzer according to the relationship between two characters (e.g. a space).
-                if isinstance(text_line, LTAnno) or isinstance(text_line, LTChar):
-                    # Ignore LTAnno
-                    continue
-                txt_obj = PDFText(text_line, file_info.page_no)
-                # Check if index wasn't found
-                if not index_found:
-                    # -- Check for match - to end scan
-                    if index > file_info.page_index and txt_obj.text.startswith(stop_value):
-                        # Match page
-                        if not file_info.header_set():
-                            # Get header - increase to 1 to make sure for test for <
-                            file_info.page_header = txt_obj.bbox[3] + 1
-                        # Set index
-                        file_info.page_index = index
-                        index_found = True
-                        # Indicate to work on this page
-                        next_page = False
-                
-                # -- Add entry to page data (no end occurred)
-                # Create an individual key
-                y_pos = file_info.page_no * 1000.0 + txt_obj.y
-                # Check if key still on page data
-                if not y_pos in file_info.pages_data.keys():
-                    # If not create list
-                    file_info.pages_data[y_pos] = []
-                # Add page data to list
-                file_info.pages_data[y_pos].append(txt_obj)
-    return next_page
+    # Dictionary to for temporary data
+    tmp_page_data = {}
+
+    if file_info.add_next_page:
+        # Process each element in the layout of the page
+        for element in page_elements:
+            # Check if it is text
+            if isinstance(element, LTTextContainer):
+                # loop over lines
+                for text_line in element:
+                    # LTChar
+                    # LTAnno
+                    # Represent an actual letter in the text as a Unicode string. Note that, while a LTChar object has
+                    # actual boundaries, LTAnno objects does not, as these are "virtual" characters, inserted by a
+                    # layout analyzer according to the relationship between two characters (e.g. a space).
+                    if isinstance(text_line, LTAnno) or isinstance(text_line, LTChar):
+                        # Ignore LTAnno and LTChar
+                        continue
+                    # Get text obj
+                    txt_obj = PDFText(text_line, file_info.page_no)
+                    
+                    # -- Add entry to page data (no end occurred)
+                    # Create an individual key
+                    y_pos = file_info.page_no * 1000.0 + txt_obj.y
+                    # Check if key still on page data
+                    if not y_pos in file_info.pages_data.keys():
+                        # If not create list
+                        file_info.pages_data[y_pos] = []
+                        # Use pointer here
+                        tmp_page_data[y_pos] = file_info.pages_data[y_pos]
+
+                    # Add page data to list
+                    file_info.pages_data[y_pos].append(txt_obj)
+
+
+    # set add next page to true
+    file_info.add_next_page = True
+
+    # sort list elements
+    for values in tmp_page_data.values():
+        values.sort(key=lambda z : z.x)
+   
+    if not tmp_page_data:
+        tmp_page_data = file_info.pages_data.copy()
+   
+    # loop over page data
+    for key, values in tmp_page_data.items():
+        # create position
+        pos = float(key) % 1000.0
+        
+        # Remove header data from file
+        if file_info.pages_data[key][0].y > file_info.page_header:
+            del file_info.pages_data[key]
+        
+        # -- Check for match - to end scan
+        if pos < file_info.page_header and len(values) == 1 and values[0].text.startswith(stop_value):
+            # Match page
+            if not file_info.header_set():
+                # Get header - increase to 1 to make sure for test for >
+                file_info.page_header = pos + 1
+
+            # Indicate to work on this page
+            file_info.add_next_page = False
+            # stop loop index found
+            break
+
+    return file_info.add_next_page
 
 
 def _analyse_steps(file_info: _FileInfo, collection: SpecialCollection) -> str:
