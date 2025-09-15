@@ -718,8 +718,8 @@ def _step_05_check_competition(file_info: _FileInfo, collection: SpecialCollecti
             # set next find_str
             next_value = collection.config.pdf_values.judging_panel
         else:
-            # set next find_str - because of last entry find itself
-            next_value = collection.competition_by_no(file_info.competition_no).name()
+            # Add end document here
+            next_value = '__end_document__'
         # Do not change step
         file_info.clear_page_data()
         # output - for info
@@ -838,7 +838,7 @@ def _analyse_steps(file_info: _FileInfo, collection: SpecialCollection) -> str:
     """
     step = file_info.step
     next_value: str = ''
-    if step < 6:
+    if 0 <= step < 6:
         next_value = _STEP_LIST[step](file_info, collection)
     else:
         # output - for info
@@ -888,6 +888,13 @@ def read_pdf(pdf_file: str) -> ([Collection, None], list):
                 break
             else:
                 find_next = _analyse_steps(file_info, collection)
+    # In case document is end and last pages has data
+    if find_next == '__end_document__':
+        # First to loop over last page
+        _analyse_steps(file_info, collection)
+        # output - for info
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Finished')
+        
     return collection, [file_info.x_start, file_info.x_end]
 
 
