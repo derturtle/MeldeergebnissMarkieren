@@ -11,21 +11,24 @@ MAIN_DEBUG: bool = False
 
 def debug_func():
     tests: dict = {
-        "2024_HF":  ['./TestFiles/2024_HF.pdf', None, None],
-        "2024_TSG": ['./TestFiles/2024_TSG.pdf', None, None],
-        "2024_Nikolaus": ['./TestFiles/2024_Nikolaus.pdf', None, None],
-        "2025_TSG": ['./TestFiles/2025_TSG.pdf', None, None],
-        "2025_KMS": ['./TestFiles/2025_KMS.pdf', None, None],
-        "2025_BadEssen": ['./TestFiles/2025_BadEssen.pdf', None, None],
-        "2025_Rheine": ['./TestFiles//2025_Rheine_SVG.pdf', None, None],
+        "2024_HF":  ['./TestFiles/2024_HF.pdf', 89, None],
+        "2024_TSG": ['./TestFiles/2024_TSG.pdf', 76, None],
+        "2024_Nikolaus": ['./TestFiles/2024_Nikolaus.pdf', 39, None],
+        "2025_TSG": ['./TestFiles/2025_TSG.pdf', 90, None],
+        "2025_KMS": ['./TestFiles/2025_KMS.pdf', 41, None],
+        "2025_BadEssen": ['./TestFiles/2025_BadEssen.pdf', 20, None],
+        "2025_Rheine": ['./TestFiles//2025_Rheine_SVG.pdf', 86, None],
+        "2025_TSWF": ['./TestFiles//2025_TWSF.pdf', 35, None],  # last page was not scanned
     }
     
     for key, value in tests.items():
         base = os.path.dirname(value[0])
         name = os.path.basename(value[0])
         out = base + '/out/' + name
+        print(f'[DEBUG] Processing {key}')
         # Reading pdf
         collection, borders = read_pdf(value[0])
+        print(f'[DEBUG] {key} has {value[1]} pages')
         # Create outputs
         club_to_file(out[:-4]+'.md', collection.club_by_name('SV Georgsmarienhütte'), FileType.MARKDOWN)
         club_to_file(out[:-4]+'.html', collection.club_by_name('SV Georgsmarienhütte'), FileType.HTML)
