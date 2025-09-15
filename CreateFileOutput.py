@@ -266,8 +266,11 @@ def club_to_file(file_name: str, club: Club, file_type: FileType = FileType.NONE
     
     # Generate starts
     output += _file_heading('Starts', 2, file_type, )
+    # Get athletes
+    athletes = club.athletes
+    athletes.sort(key=lambda x: x.name)
     # Loop over every athlete
-    for athlete in club.athletes:
+    for athlete in athletes:
         # Athlete as heading
         output += _file_heading(fr'{athlete.name} ({athlete.year})', 3, file_type)
         # Header of start
