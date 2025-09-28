@@ -91,6 +91,14 @@ class PDFTextCombined(PDFText):
         else:
             raise ValueError(f'Wrong value type {value}')
         
+    @property
+    def page_no(self) -> int:
+        if self._page_no == -1 and all(map(lambda x: x.page_no==self.objects[0].page_no, self.objects)):
+            return self.objects[0].page_no
+        else:
+            return self._page_no
+        
+        
     @staticmethod
     def combine(pdftext_objects: list, page_no: int = -1):
         if len(pdftext_objects) == 1 and type(pdftext_objects[0]) == PDFText:
@@ -176,7 +184,7 @@ class PDFOperations:
                     key: float = y_old
                     # Get words
                     for entry in page.extractWORDS():
-                        pdf_text = PDFText(entry)
+                        pdf_text = PDFText(entry, self.index+1)
                         # Add only if not in header
                         if pdf_text.y > header:
                             # In case there is no result or the object is bigger tha the result
