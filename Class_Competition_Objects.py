@@ -1742,10 +1742,9 @@ class Heat(_Base, HasLanes):
         :param competition: Competition the heat belongs to
         """
         self.no: int = int(no)
-        # self._lanes: list[Lane] = []
-        if competition is None:
-            self._competition = None
-        else:
+        self._competition = None
+        
+        if competition is not None:
             self.competition = competition
         
         HasLanes.__init__(self)
