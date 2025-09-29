@@ -330,117 +330,19 @@ class PDFOperations:
         pos_x1 = self._pos_x1_check(start_pos, width)
         pos_x2 = self._pos_x2_check(end_pos, width)
         
-        old_page = -1
-        shape = None
         for obj in occurrences:
-            if old_page != obj.page_no:
-                
-                if shape:
-                    shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
-                    shape.commit(overlay=False)
-                    
-                
-                old_page = obj.page_no
-                page = pages[obj.page_no-1]
-                textbox = page.get_textbox(page)
-                shape = page.new_shape()
-                Shape.insert_textbox(textbox)
-                
-                
+            page = pages[obj.page_no-1]
+            
             # Unpack the bounding box coordinates
             x0, y0, x1, y1 = obj.bbox
             # Override x0 and x1
             x0 = pos_x1
             x1 = pos_x2
-            
+
             # Slightly enlarge the rect to make it appear "behind" text
             rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
             
-            shape.draw_rect(rect, radius=0.25)
-
-
-        if shape:
-            shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
-            shape.commit(overlay=False)
-            
-        
-        
-        
-        # last_page = -1
-        # pobjs: list = []
-        # for obj in occurrences:
-        #     pobjs.append(obj)
-        #     if last_page == obj.page_no:
-        #         continue
-        #
-        #     page = pages[pobjs[0].page_no - 1]
-        #
-        #     # # Create a path for a rounded rectangle
-        #     shape = page.new_shape()
-        #
-        #     for pobj in pobjs:
-        #         # Unpack the bounding box coordinates
-        #         x0, y0, x1, y1 = pobj.bbox
-        #         # Override x0 and x1
-        #         x0 = pos_x1
-        #         x1 = pos_x2
-        #
-        #         # Slightly enlarge the rect to make it appear "behind" text
-        #         rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
-        #
-        #         shape.draw_rect(rect, radius=0.25)
-        #
-        #     shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
-        #     shape.commit(overlay=False)
-        #
-        #     last_page = obj.page_no
-        #     pobjs = []
-        #
-                    
-
-        #
-        #
-        # for obj in occurrences:
-        #     page = pages[obj.page_no-1]
-        #
-        #     # Unpack the bounding box coordinates
-        #     x0, y0, x1, y1 = obj.bbox
-        #     # Override x0 and x1
-        #     x0 = pos_x1
-        #     x1 = pos_x2
-        #
-        #
-        #     # Slightly enlarge the rect to make it appear "behind" text
-        #     rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
-        #     # page.add_highlight_annot(rect)
-        #     # page.flatten_annotations()
-        #
-        #     # # sh = page.draw_rect(rect, radius=0.25)
-        #     #
-        #     # # pg = pymupdf.Page()
-        #     # # sh = pg.new_shape()
-        #
-        #     # # Create a path for a rounded rectangle
-        #     shape = page.new_shape()
-        #     shape.draw_rect(rect, radius=0.25)
-        #     shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
-        #     shape.commit(overlay=False)
-        #     # #doc.reload_page(page)
-            
-        
-        # import fitz
-        #
-        # doc = fitz.open("your_file.pdf")
-        #
-        # for page in doc:
-        #     matches = page.search_for("Python")
-        #     for inst in matches:
-        #         page.add_highlight_annot(inst)
-        #
-        #     # Flatten the page (removes interactivity)
-        #     page.flatten_annotations()
-        #
-        # doc.save("flattened_highlight.pdf")
+            page.draw_rect(rect, color=color, fill=color, radius=0.15, overlay=False)
   
         doc.save(output_pdf)
         
