@@ -208,12 +208,23 @@ class PDFOperations:
             else:
                 # found nothing
                 return [], {}, self.index
-                
     
     def __init__(self, pdf_file: str = ''):
         # self._rd_index : int = 0
         self._header_pos = 0.0
+        self._text_x_min: int = -1
+        self._text_x_max: int = -1
+        self._collection = None
         pass
+    
+    @property
+    def text_x_range(self) -> tuple:
+        return  self._text_x_min, self._text_x_max
+    
+    @property
+    def collection(self):
+        return self._collection
+        
     
     def read_pdf(self, pdf_file: str) -> bool:
         
@@ -230,10 +241,10 @@ class PDFOperations:
         # shortcut for pdf values
         self._pdf_values = self._collection.config.pdf_values
         
-        self._doc = pymupdf.open(pdf_file)
+        doc = pymupdf.open(pdf_file)
 
         # ----- Work with reading object -----
-        read_obj = self._ReadPDF(self._doc)
+        read_obj = self._ReadPDF(doc)
         
         # get header
         findings, page_dict, _ = read_obj.find_next(self._pdf_values.entry_cnt)
@@ -279,9 +290,218 @@ class PDFOperations:
             self._analyse_competition(page_dict, competitions[-1])
             
         return True
+    
+    def highlight_pdf(self, input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: [list, tuple],
+                      start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
+        """ Add annotations to PDF by occurrences list
+        :type input_pdf: str
+        :param input_pdf: Input pdf file
+        :type output_pdf: str
+        :param output_pdf: Output pdf file
+        :type occurrences: list[PDFtext]
+        :param occurrences: Object list with all the occurrences to highlight
+        :type color: list
+        :param color: Color in rgb for the color of the annotation
+        :type start_pos: [int, float]
+        :param start_pos: Start (x-pos) of annotation in percent or as float (direct position)
+        :type end_pos: [int, float]
+        :param end_pos: End (x-pos) of annotation in percent or as float (direct position)
+        :type offset_px: int
+        :param offset_px: Offset in px to resize annotation
+        """
+        # ---- File checks -----
+        # use full path
+        input_pdf = os.path.abspath(input_pdf)
+        # Check if file exist
+        if not os.path.exists(input_pdf):
+            return False
+        
+        # ----- Color check -----
+        if type(color) is tuple:
+            color = list(color)
+        self._color_check(color)
 
-#    def highlight(self):
-       
+        doc = pymupdf.open(input_pdf)
+        pages = list(doc.pages())
+        
+        width = pages[0].mediabox[2]
+        
+        # ----- Calculate and check position -----
+        pos_x1 = self._pos_x1_check(start_pos, width)
+        pos_x2 = self._pos_x2_check(end_pos, width)
+        
+        old_page = -1
+        shape = None
+        for obj in occurrences:
+            if old_page != obj.page_no:
+                
+                if shape:
+                    shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
+                    shape.commit(overlay=False)
+                    
+                
+                old_page = obj.page_no
+                page = pages[obj.page_no-1]
+                textbox = page.get_textbox(page)
+                shape = page.new_shape()
+                Shape.insert_textbox(textbox)
+                
+                
+            # Unpack the bounding box coordinates
+            x0, y0, x1, y1 = obj.bbox
+            # Override x0 and x1
+            x0 = pos_x1
+            x1 = pos_x2
+            
+            # Slightly enlarge the rect to make it appear "behind" text
+            rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
+            
+            shape.draw_rect(rect, radius=0.25)
+
+
+        if shape:
+            shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
+            shape.commit(overlay=False)
+            
+        
+        
+        
+        # last_page = -1
+        # pobjs: list = []
+        # for obj in occurrences:
+        #     pobjs.append(obj)
+        #     if last_page == obj.page_no:
+        #         continue
+        #
+        #     page = pages[pobjs[0].page_no - 1]
+        #
+        #     # # Create a path for a rounded rectangle
+        #     shape = page.new_shape()
+        #
+        #     for pobj in pobjs:
+        #         # Unpack the bounding box coordinates
+        #         x0, y0, x1, y1 = pobj.bbox
+        #         # Override x0 and x1
+        #         x0 = pos_x1
+        #         x1 = pos_x2
+        #
+        #         # Slightly enlarge the rect to make it appear "behind" text
+        #         rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
+        #
+        #         shape.draw_rect(rect, radius=0.25)
+        #
+        #     shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
+        #     shape.commit(overlay=False)
+        #
+        #     last_page = obj.page_no
+        #     pobjs = []
+        #
+                    
+
+        #
+        #
+        # for obj in occurrences:
+        #     page = pages[obj.page_no-1]
+        #
+        #     # Unpack the bounding box coordinates
+        #     x0, y0, x1, y1 = obj.bbox
+        #     # Override x0 and x1
+        #     x0 = pos_x1
+        #     x1 = pos_x2
+        #
+        #
+        #     # Slightly enlarge the rect to make it appear "behind" text
+        #     rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
+        #     # page.add_highlight_annot(rect)
+        #     # page.flatten_annotations()
+        #
+        #     # # sh = page.draw_rect(rect, radius=0.25)
+        #     #
+        #     # # pg = pymupdf.Page()
+        #     # # sh = pg.new_shape()
+        #
+        #     # # Create a path for a rounded rectangle
+        #     shape = page.new_shape()
+        #     shape.draw_rect(rect, radius=0.25)
+        #     shape.finish(color=None, fill=color, width=0, fill_opacity=0.5)  # No border
+        #     shape.commit(overlay=False)
+        #     # #doc.reload_page(page)
+            
+        
+        # import fitz
+        #
+        # doc = fitz.open("your_file.pdf")
+        #
+        # for page in doc:
+        #     matches = page.search_for("Python")
+        #     for inst in matches:
+        #         page.add_highlight_annot(inst)
+        #
+        #     # Flatten the page (removes interactivity)
+        #     page.flatten_annotations()
+        #
+        # doc.save("flattened_highlight.pdf")
+  
+        doc.save(output_pdf)
+        
+        
+    
+    @staticmethod
+    def _color_check(color: list):
+        """ CHeck if the color is in correct format
+        :param color: Color in RGB as list
+        """
+        # ----- Color check -----
+        if not color:
+            color = [255, 255, 0]
+        # check color
+        if len(color) != 3:
+            raise ValueError(fr'Color is not in RGB format {color}')
+        for i in range(0, len(color)):
+            if color[i] > 255:
+                color[i] = 255
+            elif color[i] < 0:
+                color[i] = 0
+            # convert to float
+            color[i] = float(color[i]) / 255
+    
+    @staticmethod
+    def _pos_x1_check(start_pos: [int, float], width: float) -> float:
+        """ Check x1 (start) position of marking
+        :param start_pos: start position
+        :param width: width of page
+        :return: Actual x1 position (start) as float
+        """
+        if type(start_pos) is int:
+            if start_pos < 0 or start_pos > 100:
+                start_pos = 0
+            # Calculate percent to float position
+            return float(width) * (start_pos / 100)
+        elif type(start_pos) is float:
+            if start_pos < 0.0:
+                start_pos = 0.0
+            return start_pos
+        else:
+            raise TypeError('Only float or int are allowed')
+    
+    @staticmethod
+    def _pos_x2_check(end_pos: [int, float], width: float) -> float:
+        """ Check x2 (end) position of marking
+        :param end_pos: start position
+        :param width: width of page
+        :return: Actual x2 position (pos) as float
+        """
+        if type(end_pos) is int:
+            if end_pos < 0 or end_pos > 100:
+                end_pos = 100
+            # Calculate percent to float position
+            return float(width) * (end_pos / 100)
+        elif type(end_pos) is float:
+            if end_pos > width:
+                end_pos = width
+            return end_pos
+        else:
+            raise TypeError('Only float or int are allowed')
         
     def _analyse_result_report(self, page_dict: dict):
         
@@ -405,6 +625,10 @@ class PDFOperations:
             raise Exception(f"For competition five vales are expected. Found {header}")
         
         page_list = self._create_table_list(page_dict, header, self._pdf_values.competition)
+        
+        if self._text_x_min == -1 and page_list:
+            self._text_x_min = page_list[0][0].x
+            self._text_x_max = page_list[0][4].bbox[2]
         
         # create heat_zero
         heat_zero = Heat(0)

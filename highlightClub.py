@@ -3,11 +3,12 @@ import sys
 import argparse
 
 from PDFOperations import *
+from PDFOperations_pymupdf import *
 from Class_Config import *
 from CreateFileOutput import FileType, club_to_file
 from Class_TextInterface import TextInterface
 
-MAIN_DEBUG: bool = False
+MAIN_DEBUG: bool = True
 
 def debug_func():
     tests: dict = {
@@ -27,6 +28,10 @@ def debug_func():
         out = base + '/out/' + name
         print(f'[DEBUG] Processing {key}')
         # Reading pdf
+        test = PDFOperations()
+        test.read_pdf(value[0])
+        test.highlight_pdf(value[0], 'HF_tmp.pdf', test.collection.club_by_name('SV Georgsmarienhütte').occurrence, list(test.collection.config.colors.rgb['yellow']), test.text_x_range[0], test.text_x_range[1], 1)
+        
         collection, borders = read_pdf(value[0])
         print(f'[DEBUG] {key} has {value[1]} pages')
         # Create outputs
