@@ -224,7 +224,6 @@ class PDFOperations:
     @property
     def collection(self):
         return self._collection
-        
     
     def read_pdf(self, pdf_file: str) -> bool:
         
@@ -234,6 +233,9 @@ class PDFOperations:
         # Check if file exist
         if not os.path.exists(pdf_file):
             return False
+        # print information
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Analyse file:')
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {pdf_file}')
         
         # ---- Start reading -----
         # Generate local variables
@@ -250,7 +252,8 @@ class PDFOperations:
         findings, page_dict, _ = read_obj.find_next(self._pdf_values.entry_cnt)
         if findings:
             self._header_pos = findings[0].y - 1.0
-            
+        
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Entry result')
         # get competition information
         findings, page_dict, _ = read_obj.find_next(self._pdf_values.judging_panel, self._header_pos)
         
@@ -263,17 +266,24 @@ class PDFOperations:
         
         # ---- Loop over Document start with Judging panel ----
         for section_no, section in enumerate(self._collection.sections, start=1):
+            
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Judging panel - Section {section_no}')
             # ----- Get Judging panel
             findings, page_dict, _ = read_obj.find_next(self._pdf_values.competition_sequenz, self._header_pos)
             self._analyse_judging_panel(page_dict, section)
+            
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition sequenz - Section {section_no}')
             # ----- Get competition sequenz (find by "heat 1")
             findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.heat} 1', self._header_pos)
             self._analyse_sequenz(page_dict, section)
+            
             # ----- Loop over competitions
             # Get competition list without finals
             competitions = [comp for comp in self._collection.competitions[comp_index:] if not comp.is_final()]
             # loop over all without the last one
             for i in range(0, len(competitions)-1):
+                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {competitions[i].no}')
+                # Analyse competition
                 findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.competition} {competitions[i+1].no}', self._header_pos)
                 self._analyse_competition(page_dict, competitions[i])
             # Check for last section (must loop to en of document)
@@ -285,13 +295,16 @@ class PDFOperations:
                 find_str = self._pdf_values.judging_panel
                 # Set new competition start index
                 comp_index += len(competitions)
+            
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {competitions[-1].no}')
             # Analyse last completion of section (or document)
             findings, page_dict, _ = read_obj.find_next(find_str, self._header_pos)
             self._analyse_competition(page_dict, competitions[-1])
             
         return True
     
-    def highlight_pdf(self, input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: [list, tuple],
+    @staticmethod
+    def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: [list, tuple],
                       start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
         """ Add annotations to PDF by occurrences list
         :type input_pdf: str
@@ -319,7 +332,7 @@ class PDFOperations:
         # ----- Color check -----
         if type(color) is tuple:
             color = list(color)
-        self._color_check(color)
+        PDFOperations._color_check(color)
 
         doc = pymupdf.open(input_pdf)
         pages = list(doc.pages())
@@ -327,26 +340,90 @@ class PDFOperations:
         width = pages[0].mediabox[2]
         
         # ----- Calculate and check position -----
-        pos_x1 = self._pos_x1_check(start_pos, width)
-        pos_x2 = self._pos_x2_check(end_pos, width)
+        pos_x1 = PDFOperations._pos_x1_check(start_pos, width)
+        pos_x2 = PDFOperations._pos_x2_check(end_pos, width)
         
+        PDFOperations._add_rects(occurrences, pages, color, pos_x1, pos_x2, offset_px, 0.2)
+  
+        doc.save(output_pdf)
+        
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Saved highlighted PDF to')
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {output_pdf}')
+        pass
+    
+    @staticmethod
+    def highlight_pdf_clubs(input_pdf: str, output_pdf: str, clubs: list[Club], colors: list[tuple],
+                            start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
+        """ Add annotations to PDF by club occurence
+        :type input_pdf: str
+        :param input_pdf: Input pdf file
+        :type output_pdf: str
+        :param output_pdf: Output pdf file
+        :type clubs: list[Club]
+        :param clubs: A list of clubs which should be annotated
+        :type colors: list[tuple]
+        :param colors: A list of colors for the annotation color for every club
+        :type start_pos: [int, float]
+        :param start_pos: Start (x-pos) of annotation in percent or as float (direct position)
+        :type end_pos: [int, float]
+        :param end_pos: End (x-pos) of annotation in percent or as float (direct position)
+        :type offset_px: int
+        :param offset_px: Offset in px to resize annotation
+        """
+        
+        # ---- File checks -----
+        # use full path
+        input_pdf = os.path.abspath(input_pdf)
+        # Check if file exist
+        if not os.path.exists(input_pdf):
+            return None
+        
+        # ---- File checks -----
+        if len(clubs) != len(colors):
+            raise Exception('clubs and colors must have the same length')
+        
+        doc = pymupdf.open(input_pdf)
+        pages = list(doc.pages())
+        
+        width = pages[0].mediabox[2]
+        
+        # ----- Calculate and check position -----
+        pos_x1 = PDFOperations._pos_x1_check(start_pos, width)
+        pos_x2 = PDFOperations._pos_x2_check(end_pos, width)
+        
+        for i in range(len(clubs)):
+            
+            color = colors[i]
+            # ----- Color check -----
+            if type(colors) is tuple:
+                color = list(color)
+            PDFOperations._color_check(color)
+            
+            PDFOperations._add_rects(clubs[i].occurrence, pages, color, pos_x1, pos_x2, offset_px, 0.2)
+        
+        doc.save(output_pdf)
+        
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Saved highlighted PDF to')
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] {output_pdf}')
+        pass
+        
+            
+        
+    @staticmethod
+    def _add_rects(occurrences: list, pages: list, color: list, start_px: float, end_px: float, offset_px: float, radius: float):
         for obj in occurrences:
-            page = pages[obj.page_no-1]
+            page = pages[obj.page_no - 1]
             
             # Unpack the bounding box coordinates
             x0, y0, x1, y1 = obj.bbox
             # Override x0 and x1
-            x0 = pos_x1
-            x1 = pos_x2
-
+            x0 = start_px
+            x1 = end_px
+            
             # Slightly enlarge the rect to make it appear "behind" text
             rect = pymupdf.Rect(x0 - offset_px, y0 - offset_px, x1 + offset_px, y1 + offset_px)
             
-            page.draw_rect(rect, color=color, fill=color, radius=0.15, overlay=False)
-  
-        doc.save(output_pdf)
-        
-        
+            page.draw_rect(rect, color=color, fill=color, radius=radius, overlay=False)
     
     @staticmethod
     def _color_check(color: list):
@@ -497,6 +574,7 @@ class PDFOperations:
             else:
                 # club didn't exist
                 club = self._generate_club(entry[2])
+                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Debug | {club} has no athlete')
             # Add judge
             if not entry[1]:
                 Judge(entry[0].text, '-', club, section)
@@ -722,33 +800,6 @@ class PDFOperations:
         # Add PDF object as occurrence to club
         club.add_occurrence(text_obj)
         return club
-                
-            
-    
-    
-def _page_to_dict_row(page: pymupdf.TextPage, page_no: int, key: str) -> tuple:
-    
-    match = False
-    page_dict = {}
-    # page.search() # todo look into it
-    page_offset = page_no * 1000
-    
-    entries = page.extractWORDS()
-    
-    tmp_y : float= -1.0
-    
-    for entry in entries:
-        pdf_text = PDFText(entry, page_no)
-        match = pdf_text.text == key
-        
-        if tmp_y != pdf_text.y:
-            tmp_y = pdf_text.y
-            page_dict[float(page_offset) + pdf_text.y] = []
-        
-        page_dict[float(page_offset) + pdf_text.y].append(pdf_text)
-        
-    return page_dict, match
-    
     
 
 
