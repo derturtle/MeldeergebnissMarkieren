@@ -171,22 +171,35 @@ class PDFOperations:
             # Get starting point
             page = self.get_textpage()
             # Loop over pages
+            # to see page page.extractText()
             while page:
-                # Check if result in page
-                result = page.search(text)
+                # Check for search term
+                if text:
+                    # Search for text in page
+                    results = page.search(text)
+                else:
+                    # No result loop to end of document
+                    results = []
                 # There is still old data
                 if self._last_data:
-                    page_data.update(self._last_data)
+                    page_data.update(dict(sorted(self._last_data.items())))
                     self._last_data = {}
-                    
-                    if result and result[0].ul.y >= page_data[list(page_data.keys())[0]][0].y:
-                        key = result[0].ul.y + ((self.index + 1) * 1000)
-                        keys = list(page_data.keys())
-                        cpy_keys = keys[keys.index(key):]
-                        for i in cpy_keys[1:]:
-                            self._last_data[i] = page_data[i].copy()
-                            del page_data[i]
-                        return page_data[key].copy(), page_data, self.index
+                    # In case we have a result
+                    # loop over result to find next match
+                    for result in results:
+                        # Check if there is a match on the page
+                        if result.ul.y >= page_data[list(page_data.keys())[0]][0].y:
+                            key = result.ul.y + ((self.index + 1) * 1000)
+                            keys = list(page_data.keys())
+                            cpy_keys = keys[keys.index(key):]
+                            for i in cpy_keys[1:]:
+                                self._last_data[i] = page_data[i].copy()
+                                del page_data[i]
+                            
+                            # Sort page data
+                            page_data = dict(sorted(page_data.items()))
+                            # return values
+                            return page_data[key].copy(), page_data, self.index
                 else:
                     y_old: float = -1.0
                     key: float = y_old
@@ -196,15 +209,18 @@ class PDFOperations:
                         # Add only if not in header
                         if pdf_text.y > header:
                             # In case there is no result or the object is bigger tha the result
-                            if not result or pdf_text.y <= result[0].ul.y:
+                            if not results or pdf_text.y <= results[0].ul.y:
                                 # Store in page data
                                 y_old = store_data(page_data, y_old, pdf_text)
                                 key = y_old
                             else:
                                 # Otherwise store for next run
                                 y_old = store_data(self._last_data, y_old, pdf_text)
-                    if result:
+                    if results:
                         if key > 0:
+                            # Sort page data
+                            page_data = dict(sorted(page_data.items()))
+                            # return values
                             return page_data[key].copy(), page_data, self.index
                         else:
                             return [], {}, self.index
