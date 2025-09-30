@@ -18,7 +18,8 @@ __PDF_VALUES: dict = {
     'finale': 'Finale',
     'male': 'männlich',
     'female': 'weiblich',
-    'mixed': 'mixed'
+    'mixed': 'mixed',
+    'no': 'Nr.'
 }
 # Global dictionary for default colors to use
 __COLORS: dict = {
@@ -36,11 +37,6 @@ __COLORS: dict = {
 __DEFAULT: dict = {
     'offset': 1
 }
-# 'color': 'yellow',
-# 'club': 'SV Georgsmarienhütte',
-# 'file_ending': '_marked',
-# 'mark_start': 7,
-# 'mark_end': 95,
 
 # Global dictionary for to create default config
 _CONFIG: dict = {
@@ -48,7 +44,6 @@ _CONFIG: dict = {
     'Colors': __COLORS,
     'PDFParseValues': __PDF_VALUES
 }
-
 
 class _ParseValues:
     """
@@ -211,6 +206,13 @@ class _ParseValues:
         :return: Value to identify the number of entries
         """
         return self._chk_key('no_of_entries')
+    
+    @property
+    def no(self) -> str:
+        """ Returns a no string
+        :return: Value to identify a number string
+        """
+        return self._chk_key('no')
 
     def _chk_key(self, key: str) -> str:
         """ Function checks if key in dictionary
