@@ -280,10 +280,6 @@ class PDFOperations:
         print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Entry result')
         # get competition information
         findings, page_dict, _ = read_obj.find_next(self._pdf_values.judging_panel, self._header_pos)
-        
-        page = read_obj.get_textpage()
-        blocks = page.extractBLOCKS()
-        
         self._analyse_result_report(page_dict)
         
         comp_index = 0
@@ -299,17 +295,19 @@ class PDFOperations:
             print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition sequenz - Section {section_no}')
             # ----- Get competition sequenz (find by "heat 1")
             findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.heat} 1', self._header_pos)
-            self._analyse_sequenz(page_dict, section)
+            left_over = self._analyse_sequenz(page_dict, section)
             
             # ----- Loop over competitions
             # Get competition list without finals
-            competitions = [comp for comp in self._collection.competitions[comp_index:] if not comp.is_final()]
+            competitions = [comp for comp in self._collection.competitions if not comp.is_final()][comp_index:]
             # loop over all without the last one
             for i in range(0, len(competitions)-1):
-                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {competitions[i].no}')
+                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {str(competitions[i])}')
                 # Analyse competition
                 findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.competition} {competitions[i+1].no}', self._header_pos)
-                self._analyse_competition(page_dict, competitions[i])
+                self._analyse_competition(page_dict, competitions[i], left_over)
+                # Clear left over
+                left_over = None
             # Check for last section (must loop to en of document)
             if section_no == len(self._collection.sections):
                 # Go to end of page document -> last competition
@@ -320,7 +318,7 @@ class PDFOperations:
                 # Set new competition start index
                 comp_index += len(competitions)
             
-            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {competitions[-1].no}')
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {str(competitions[-1])}')
             # Analyse last completion of section (or document)
             findings, page_dict, _ = read_obj.find_next(find_str, self._header_pos)
             self._analyse_competition(page_dict, competitions[-1])
@@ -559,17 +557,15 @@ class PDFOperations:
             else:
                 # Create text from object
                 texts:  list = [obj.text for obj in page_dict[key]]
-                # todo evaluate later (if still needed)
-                # # No. and Club are the same
-                # if club_index != 0 and len(page_dict[key]) == entry_len-1:
-                #     split = texts[0].split('.')
-                #     texts[0] = split[1]
-                #     texts.insert(0, f'{split[0]}.')
-                
-                if page_dict[keys[i+2]][club_index].text == pdf_values.club:
-                    parse_step -= 1
+
+                if i+2 < len(keys):
+                    if page_dict[keys[i+2]][club_index].text == pdf_values.club:
+                        parse_step -= 1
+                    else:
+                        self._extract_club(page_dict[key][club_index:], header_line[club_index + 1].x, association)
                 else:
-                    self._extract_club(page_dict[key][club_index:], header_line[club_index + 1].x, association)
+                    # End loop - it has no "no. of entries" in it
+                    break
         
         # ----- Create Sections
         for i, starts in enumerate(self._collection.clubs[0].starts_by_segments, start=1):
@@ -591,6 +587,9 @@ class PDFOperations:
         
         # ----- Create judging panel
         for entry in page_list:
+            # If last entry is None -> no valid judging panel entry
+            if entry[-1] is None:
+                continue
             # Add club
             club = self._collection.club_by_name(str(entry[2]))
             if club is not None:
@@ -598,7 +597,7 @@ class PDFOperations:
             else:
                 # club didn't exist
                 club = self._generate_club(entry[2])
-                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Debug | {club} has no athlete')
+                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Info: {club} has no athlete')
             # Add judge
             if not entry[1]:
                 Judge(entry[0].text, '-', club, section)
@@ -606,45 +605,30 @@ class PDFOperations:
                 Judge(entry[0].text, entry[1].text, club, section)
         pass
     
-    def _analyse_sequenz(self, page_dict: dict, section: Section):
-        
-        for objs in page_dict.values():
+    def _analyse_sequenz(self, page_dict: dict, section: Section) -> dict:
+        res_dict: dict = {}
+        for key, objs in page_dict.items():
             line_text = ' '.join([obj.text for obj in objs])
             competition = Competition.from_string(line_text, section)
             if competition:
                 if competition.is_final():
                     print(
                         fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Found finale: Competition {competition.no}')
-        pass
+            else:
+                res_dict[key] = objs
+        return res_dict
     
-    def _analyse_competition(self, page_dict: dict, competition: Competition):
-        # find header
-        header = []
-        for value in page_dict.values():
-            if value[0].text == self._pdf_values.lane:
-                header = value
-                break
+    def _analyse_competition(self, page_dict: dict, competition: Competition, additional_values=None):
         
-        if len(header) != 5:
-            raise Exception(f"For competition five vales are expected. Found {header}")
+        LANE_INDEX: int = 0
+        NAME_INDEX: int = 1
+        YEAR_INDEX: int = 2
+        CLUB_INDEX: int = 2 # Same because year will be poped from list
+        TIME_INDEX: int = 3
         
-        page_list = self._create_table_list(page_dict, header, self._pdf_values.competition)
-        
-        if self._text_x_min == -1 and page_list:
-            self._text_x_min = page_list[0][0].x
-            self._text_x_max = page_list[0][4].bbox[2]
-        
-        # create heat_zero
-        heat_zero = Heat(0)
-        # Still no heat found
-        heat = heat_zero
-        
-        last_lane = 10000
-        for entry in page_list:
-            time_str = entry[4].text
-            
+        def extract_year(pdf_obj: PDFText) -> Year:
             # generate year
-            year_str = entry[2].text
+            year_str = pdf_obj.text
             try:
                 if year_str[:4].isnumeric():
                     # Try to made int from string
@@ -659,79 +643,136 @@ class PDFOperations:
                 # otherwise set year to 0
                 year_no = 0
             # Check if year is available in collection
-            year = self._collection.get_year(year_no)
-            if not year:
+            result_year = self._collection.get_year(year_no)
+            if not result_year:
                 # In case year is not available create it
-                year = Year(year_no)
+                result_year = Year(year_no)
             # Add PDF object as occurrence to year
-            year.add_occurrence(entry[2])
+            result_year.add_occurrence(pdf_obj)
             
-            # Create club
-            club = self._generate_club(entry[3])
-            
-            # Create athlete
-            athlete_text = ' '.join(map(str, entry[1:4]))
-            athlete_name = entry[1].text
+            return result_year
+        
+        def extract_athlete(pdf_obj: PDFText, a_club: Club, a_year: Year) -> Athlete:
+            # ---- Create athlete -----
+            a_name = pdf_obj.text
             # In case of relay on real name is there
             if competition.is_relay():
-                athlete_text += fr' ({competition.sex})'
-                athlete_name += fr' ({competition.sex})'
+                a_name += fr' ({competition.sex})'
             
             # Check if athlete exist
-            athlete = None
-            athlete_list = self._collection.athletes_by_name(athlete_name)
-            if athlete_list:
-                if len(athlete_list) > 0:
-                    for a in athlete_list:
-                        if a.club == club and a.year == year:
+            result_athlete = None
+            athletes = self._collection.athletes_by_name(a_name)
+            if athletes:
+                if len(athletes) > 0:
+                    for a in athletes:
+                        if a.club == a_club and a.year == a_year:
                             # found athlete
-                            athlete = a
+                            result_athlete = a
                             break
                 else:
-                    athlete = athlete_list[0]
+                    result_athlete = athletes[0]
             
-            if not athlete:
+            if not result_athlete:
                 # Create Athlete
-                athlete = Athlete(athlete_name, year, club)
-            athlete.add_occurrence(entry[1])
+                result_athlete = Athlete(a_name, a_year, a_club)
+            result_athlete.add_occurrence(pdf_obj)
+            return result_athlete
+        
+        # find header
+        header = []
+        for value in page_dict.values():
+            if (value[0].text == self._pdf_values.lane or value[0].text == self._pdf_values.no) and value[1].text != "0":
+                header = value
+                break
+        
+        if len(header) != 5:
+            raise Exception(f"For competition five vales are expected. Found {header}")
+        
+        if additional_values is None:
+            page_list = self._create_table_list(page_dict, header, self._pdf_values.competition)
+        else:
+            page_list = self._create_table_list(additional_values, header, self._pdf_values.competition)
+            page_list.extend(self._create_table_list(page_dict, header, self._pdf_values.competition))
             
-            # Create time
-            time = datetime.time.fromisoformat(fr'00:{time_str}')
-
-            # Create lane
-            lane_str = entry[0].text
-            if self._pdf_values.lane in lane_str:
-                lane_no = int(lane_str.replace(self._pdf_values.lane, '').strip())
-                list_entry = False
-                # Check for next heat
-                if lane_no < last_lane:
-                    heat = Heat(heat.no+1, competition)
-                last_lane = lane_no
+        # Get x min/max of page
+        if self._text_x_min == -1 and page_list:
+            for entry in page_list:
+                if entry[LANE_INDEX].text.startswith(self._pdf_values.lane):
+                    # Found x min/max
+                    self._text_x_min = entry[LANE_INDEX].x
+                    self._text_x_max = entry[TIME_INDEX+1].bbox[2]
+                    # Break loop
+                    break
+        
+        # create heat_zero
+        heat_zero = Heat(0)
+        # Still no heat found
+        heat = heat_zero
+        
+        last_lane = 10000
+        for entry in page_list:
+            # Inclusive special treatment for year is short and text is center
+            entry_year = entry.pop(2)
+            # Wrong entry -> should not have none, go to next
+            if None in entry:
+                continue
+            
+            if entry_year is None:
+                if type(entry[YEAR_INDEX]) is PDFTextCombined:
+                    # Create year
+                    year = extract_year(entry[NAME_INDEX][-1])
+                    if year.year != 0:
+                        entry[NAME_INDEX].pop(-1)
+                else:
+                    year = Year(0)
             else:
-                lane_no = int(lane_str.replace('.', '').strip())
-                list_entry = True
-                # heat = heat_zero
+                # Create year
+                year = extract_year(entry_year)
             
-            Lane(lane_no, time, athlete, heat, list_entry)
+            # Create club
+            club = self._generate_club(entry[CLUB_INDEX])
+            # Create athlete
+            athlete = extract_athlete(entry[NAME_INDEX], club, year)
+            # Create time
+            time = datetime.time.fromisoformat(fr'00:{entry[TIME_INDEX].text}')
+            # ----- Create lane -----
+            # Get lane text
+            lane_str = entry[LANE_INDEX].text
+            # Default: lane is not a list entry
+            list_entry = False
+            if self._pdf_values.lane in lane_str:
+                # Get lane_no
+                lane_no = int(lane_str.replace(self._pdf_values.lane, '').strip())
+                # Check for next heat
+                if lane_no > 0:
+                    if lane_no < last_lane:
+                        # Create new heat
+                        heat = Heat(heat.no+1, competition)
+                    # Store last lange to create new heat
+                    last_lane = lane_no
+            else:
+                # Get lane_no
+                lane_no = int(lane_str.replace('.', '').strip())
+                # Lane is list entry
+                list_entry = True
+            
+            lane = Lane(lane_no, time, athlete, heat, list_entry)
             
         # Ad heat 0 to competition if it has lanes
         if len(heat_zero.lanes) > 0:
             heat_zero.competition = competition
         else:
             heat_zero.remove()
-        
-        a=1
-        
-        
     
     
     def _create_table_list(self, page_dict: dict, header: list, stop_cond: str) -> list:
         result: list = []
         
         # ----- Generate end points
-        pts_end: list = []
+        pts_end: list = [0]
         for entry in header[1:]:
             pts_end.append(entry.x)
+        pts_end.append(100000)
         
         # ----- Loop over dictionary
         for pdf_objs in page_dict.values():
@@ -742,28 +783,27 @@ class PDFOperations:
             # Check if length is min the same otherwise reject value
             if len(pdf_objs) >= len(header):
                 
-                # Loop over end points to get indices of entries
-                indices = [0] * (len(pts_end) + 2)
-                for i, end_point in enumerate(pts_end): # End point loop
-                    while indices[i + 1] < len(pdf_objs): # List loop
-                        # Check if position is > end point - store and use next entry
-                        if pdf_objs[indices[i + 1]].x >= end_point:
-                            indices[i + 2] = indices[i + 1] + 1
-                            break
-                        indices[i + 1] += 1
-                # Set last indice (always last entry)
-                indices[len(indices) - 1] = len(pdf_objs)
+                tmp = []
+                for i in range(len(pts_end)-1):
+                    tmp.append([])
                 
-                # Add new objects to new list entry
-                tmp: list = []
-                for i in range(len(indices) - 1):
-                    if indices[i] != indices[i + 1]:
-                        tmp.append(PDFTextCombined.combine(pdf_objs[indices[i]:indices[i + 1]]))
+                start = 0
+                for pdf_obj in pdf_objs:
+                    for i in range(start, len(pts_end)-1):
+                        if pts_end[i] <= pdf_obj.x < pts_end[i+1]:
+                            tmp[i].append(pdf_obj)
+                            start = i
+                            break
+                    
+                    
+                for i in range(len(tmp)):
+                    if tmp[i]:
+                        tmp[i] = PDFTextCombined.combine(tmp[i])
                     else:
-                        tmp.append(None)
+                        tmp[i] = None
                 
                 # if tmp is not text of position
-                if tmp[0].text != header[0].text and tmp[-1] is not None:
+                if tmp[0].text != header[0].text:
                     result.append(tmp)
         return result
         
