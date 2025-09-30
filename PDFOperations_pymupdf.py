@@ -90,6 +90,14 @@ class PDFTextCombined(PDFText):
                 self.objects = value
         else:
             raise ValueError(f'Wrong value type {value}')
+    
+    def __getitem__(self, index: int):
+        return self.objects[index]
+        
+    def pop(self, index: int):
+        obj = self.objects.pop(index)
+        self._value = PDFText.combine(self.objects, self.page_no).value
+        return obj
         
     @property
     def page_no(self) -> int:
