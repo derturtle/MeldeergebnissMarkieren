@@ -414,10 +414,9 @@ class PDFOperations:
         pos_x2 = PDFOperations._pos_x2_check(end_pos, width)
         
         for i in range(len(clubs)):
-            
             color = colors[i]
             # ----- Color check -----
-            if type(colors) is tuple:
+            if type(color) is tuple:
                 color = list(color)
             PDFOperations._color_check(color)
             
@@ -458,7 +457,7 @@ class PDFOperations:
         # check color
         if len(color) != 3:
             raise ValueError(fr'Color is not in RGB format {color}')
-        for i in range(0, len(color)):
+        for i in range(len(color)):
             if color[i] > 255:
                 color[i] = 255
             elif color[i] < 0:
