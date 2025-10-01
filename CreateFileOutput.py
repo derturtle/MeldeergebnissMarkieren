@@ -1,5 +1,5 @@
 from enum import Enum
-from Class_Competition_Objects import *
+from Class_Competition_Objects import Club
 
 
 class FileType(Enum):

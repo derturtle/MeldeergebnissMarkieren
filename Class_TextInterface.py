@@ -1,14 +1,13 @@
-import curses
-import glob
 import os
 import sys
+import glob
+import curses
 
 from enum import Enum
 
 from Class_Config import Config
 from Class_Competition_Objects import Collection
-from PDFOperations import read_pdf, highlight_pdf, highlight_pdf_clubs
-from PDFOperations_pymupdf import PDFOperations
+from Class_PDFOperations import PDFOperations
 from CreateFileOutput import club_to_file, FileType
 
 MENU_DEBUG: bool = False

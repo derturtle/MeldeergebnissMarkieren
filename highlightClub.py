@@ -2,10 +2,8 @@ import os
 import sys
 import argparse
 
-import PDFOperations
-from PDFOperations import *
-from PDFOperations_pymupdf import *
-from Class_Config import *
+from Class_Config import Config
+from Class_PDFOperations import PDFOperations
 from CreateFileOutput import FileType, club_to_file
 from Class_TextInterface import TextInterface
 
@@ -26,7 +24,7 @@ def debug_func():
     for key, value in tests.items():
         base = os.path.dirname(value[0])
         name = os.path.basename(value[0])
-        out = base + '/out_new/' + name
+        out = base + '/out/' + name
         print(f'[DEBUG] Processing {key}')
 
         # Reading pdf
