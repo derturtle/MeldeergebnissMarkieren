@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 
+import PDFOperations
 from PDFOperations import *
 from PDFOperations_pymupdf import *
 from Class_Config import *
@@ -25,29 +26,36 @@ def debug_func():
     for key, value in tests.items():
         base = os.path.dirname(value[0])
         name = os.path.basename(value[0])
-        out = base + '/out/' + name
+        out = base + '/out_new/' + name
         print(f'[DEBUG] Processing {key}')
+
         # Reading pdf
-        test = PDFOperations()
-        test.read_pdf(value[0])
-        test.highlight_pdf(value[0], 'HF_tmp.pdf', test.collection.club_by_name('SV Georgsmarienhütte').occurrence, list(test.collection.config.colors.rgb['yellow']), test.text_x_range[0], test.text_x_range[1], 1)
+        pdf_obj = PDFOperations()
+        pdf_obj.read_pdf(value[0])
         
-        collection, borders = read_pdf(value[0])
+        # Store collection
+        coll = pdf_obj.collection
+        
         print(f'[DEBUG] {key} has {value[1]} pages')
         # Create outputs
-        club_to_file(out[:-4]+'.md', collection.club_by_name('SV Georgsmarienhütte'), FileType.MARKDOWN)
-        club_to_file(out[:-4]+'.html', collection.club_by_name('SV Georgsmarienhütte'), FileType.HTML)
-        club_to_file(out[:-4]+'.txt', collection.club_by_name('SV Georgsmarienhütte'), FileType.TEXT)
-        highlight_pdf(value[0], out[:-4]+'_marked.pdf', collection.club_by_name('SV Georgsmarienhütte').occurrence, list(collection.config.colors.rgb['grey_75']), borders[0], borders[1], 1)
+        club_to_file(out[:-4]+'.md', coll.club_by_name('SV Georgsmarienhütte'), FileType.MARKDOWN)
+        club_to_file(out[:-4]+'.html', coll.club_by_name('SV Georgsmarienhütte'), FileType.HTML)
+        club_to_file(out[:-4]+'.txt', coll.club_by_name('SV Georgsmarienhütte'), FileType.TEXT)
+        
+        PDFOperations.highlight_pdf(value[0], out[:-4] + '_marked.pdf',
+                                    coll.club_by_name('SV Georgsmarienhütte').occurrence,
+                                    list(coll.config.colors.rgb['grey_75']),
+                                    pdf_obj.text_x_range[0], pdf_obj.text_x_range[1], 1)
+
         # store collection and borders
-        tests[key][1] = collection
-        tests[key][2] = borders
+        tests[key][1] = pdf_obj.text_x_range
+        tests[key][2] = pdf_obj.collection
+        
     # Check config
     config = Config()
     color = config.colors.valid_color('255,0,0')
     if color:
         config.colors.add('red', color)
-    #config.default['search_path'] = 'abc'
     config.save()
     
 def run_parser():
@@ -89,12 +97,18 @@ def run_parser():
         print("\nerror: Invalid color, use format 255,255,255, 0xFFFFFF or #FFFFFF\n\nValid colors are: " + ', '.join(
             error_color) + '\n')
         exit(3)
+    
+    # Reading pdf
+    obj_pdf = PDFOperations()
     pdf_file = os.path.abspath(os.path.expanduser(args.file))
-    # Check if reading was okay
-    collection, borders = read_pdf(pdf_file)
-    if not collection:
+    if not obj_pdf.read_pdf(pdf_file):
         print("\nerror: Reading of pdf failed")
         exit(1)
+        
+    # Check if reading was okay
+    collection = obj_pdf.collection
+    borders = obj_pdf.text_x_range
+
     # Check if club exist
     club = collection.club_by_name(args.club)
     if not club:
@@ -114,7 +128,7 @@ def run_parser():
     if args.end > 0:
         borders[1] = args.end
     
-    highlight_pdf(pdf_file, output, club.occurrence, color, borders[0], borders[1], args.offset)
+    PDFOperations.highlight_pdf(pdf_file, output, club.occurrence, color, borders[0], borders[1], args.offset)
     club_to_file(output[:-4] + '.html', club)
 
 # Press the green button in the gutter to run the script.
