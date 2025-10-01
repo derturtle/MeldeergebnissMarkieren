@@ -8,6 +8,7 @@ from enum import Enum
 from Class_Config import Config
 from Class_Competition_Objects import Collection
 from PDFOperations import read_pdf, highlight_pdf, highlight_pdf_clubs
+from PDFOperations_pymupdf import PDFOperations
 from CreateFileOutput import club_to_file, FileType
 
 MENU_DEBUG: bool = False
@@ -750,11 +751,9 @@ class TextInterface:
         # Override stdout
         sys.stdout = local_out
         # Read pdf-file
-        collection, borders = read_pdf(self._pdf_file)
-        # Reset stdout
-        sys.stdout = sys.__stdout__
-        # In case there is no data
-        if not collection:
+        pdf_obj = PDFOperations()
+        # Read pdf
+        if not pdf_obj.read_pdf(self._pdf_file):
             # Clear screen again
             self.stdscr.clear()
             # No valid data found
@@ -775,8 +774,8 @@ class TextInterface:
                 return MenuStep.EXIT
         else:
             # Store collection and the borders
-            self._collection = collection
-            self._border = borders
+            self._collection = pdf_obj.collection
+            self._border = pdf_obj.text_x_range
         # Next menu select club
         return MenuStep.SELECT_CLUB
             
@@ -1037,8 +1036,8 @@ class TextInterface:
                 output_file = self._gen_output_file(os.path.dirname(self._pdf_file),
                                                     os.path.basename(self._pdf_file)[:-4] + '_' + club.name)
                 # Highlight pdf
-                highlight_pdf(self._pdf_file, output_file, club.occurrence, color, self._border[0], self._border[1],
-                              int(self.config.default['offset']))
+                PDFOperations.highlight_pdf(self._pdf_file, output_file, club.occurrence, color,
+                                            self._border[0], self._border[1], int(self.config.default['offset']))
                 # Create other output
                 club_to_file(output_file[:-4] + '.md', club, FileType.MARKDOWN)
                 club_to_file(output_file[:-4] + '.html', club, FileType.HTML)
@@ -1070,8 +1069,8 @@ class TextInterface:
                 # Create output file name
                 output_file = self._gen_output_file(os.path.dirname(self._pdf_file), os.path.basename(self._pdf_file)[:-4] + '_' + fr'_marked_{self._sel_no + 1:02d}')
             # Highlight pdf
-            highlight_pdf_clubs(self._pdf_file, output_file, clubs, colors, self._border[0], self._border[1],
-                                int(self.config.default['offset']))
+            PDFOperations.highlight_pdf_clubs(self._pdf_file, output_file, clubs, colors,
+                                              self._border[0], self._border[1], int(self.config.default['offset']))
         # Store path in config
         if self._default_path != os.path.dirname(self._pdf_file):
             self.config.default['search_path'] = os.path.dirname(self._pdf_file)
