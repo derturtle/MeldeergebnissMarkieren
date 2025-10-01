@@ -9,7 +9,7 @@ from Class_Config import *
 from CreateFileOutput import FileType, club_to_file
 from Class_TextInterface import TextInterface
 
-MAIN_DEBUG: bool = True
+MAIN_DEBUG: bool = False
 
 def debug_func():
     tests: dict = {
