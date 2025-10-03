@@ -2,6 +2,17 @@
 Diese ist ein kleines Hilfsprogramm, welches Vereine in Meldeergebnissen (Schwimmsport) markiert. Außerdem zieht es 
 noch die Daten zu jedem start aus dem Meldeergebnis und erstelle eine Meldeliste für jeden Aktiven von dem Verein
 
+## Notwndige packete
+
+Für die python umgebund werden folgende Packete benötig.
+
+   * argparse
+   * configparser   
+   * PyMuPDF
+   * windows-curses (nur windows)
+
+Diese werden allerdings über die installtionsanleitung mit installiert (siehe nächsten Abschnitt) 
+
 ## Installation
 
 1. Python installieren z.B. von der offiziellen webseite https://www.python.org/ oder unter Linux aus den Paketquellen
@@ -15,11 +26,7 @@ git clone https://github.com/derturtle/MeldeergebnissMarkieren.git
 ``` commandline
 python -m venv venv
 ```
-5. In die python umgebung wechseln und mit pip die folgenden Pakete installieren
-   * argparse
-   * pypdf
-   * pdfminer.six
-   * windows-curses (nur windows)
+5. In die Python umgebung wechseln und Packete installieren (Unix und Windows)
 
 *Unix*
 
@@ -27,9 +34,16 @@ Python umgebung starten
 ```commandline
 source ./venv/bin/activate
 ```
-Packete installieren
+Packete installieren (via textfile)
+
 ```commandline
-pip install argparse pypdf pdfminer.six
+pip install -r requirements_unix.txt
+```
+
+_Alternaiv mit den neusten Versionen_
+
+```commandline
+pip install argparse configparser PyMuPDF
 ```
 
 *Windows*
@@ -38,9 +52,14 @@ Python umgebung starten
 ```commandline 
 .\venv\Scripts\activate.bat
 ```
-Packete installieren
 ```commandline
-pip install argparse pypdf pdfminer.six windows-curses
+pip install -r requirements_win.txt
+```
+
+_Alternaiv mit den neusten Versionen_
+
+```commandline
+pip install argparse configparser PyMuPDF windows-curses
 ```
 
 6. Program starten
