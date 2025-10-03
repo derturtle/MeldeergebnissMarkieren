@@ -154,7 +154,7 @@ def _judges_end(file_type: FileType) -> str:
 
 
 def _starts_entry(section_no: int, competition_no: int, heat_no: int, lane_no: int, discipline: str,
-                  file_type: FileType, no: int = 1) -> str:
+                  time: str, file_type: FileType, no: int = 1) -> str:
     """ Creates are start entry
     :param section_no: No of the section
     :param competition_no: No of the competition
@@ -167,7 +167,7 @@ def _starts_entry(section_no: int, competition_no: int, heat_no: int, lane_no: i
     """
     result = ''
     if file_type == FileType.MARKDOWN:
-        result += fr'{no}. {competition_no:2d}/{heat_no:2d}/{lane_no} {discipline} [{section_no}]' + '\n'
+        result += fr'{no}. {competition_no:2d}/{heat_no:2d}/{lane_no} {discipline} (_{time}_) [{section_no}]' + '\n'
     elif file_type == FileType.HTML:
         result += fr'  <tr>' + '\n'
         result += fr'    <td class="text-center">{no}</td>' + '\n'
@@ -175,10 +175,11 @@ def _starts_entry(section_no: int, competition_no: int, heat_no: int, lane_no: i
         result += fr'    <td class="text-center">{heat_no}</td>' + '\n'
         result += fr'    <td class="text-center">{lane_no}</td>' + '\n'
         result += fr'    <td class="text-left">{discipline}</td>' + '\n'
+        result += fr'    <td class="text-center">{time}</td>' + '\n'
         result += fr'    <td class="text-center">{section_no}</td>' + '\n'
         result += fr'  </tr>' + '\n'
     elif file_type == FileType.TEXT:
-        result += fr'[{section_no}]  {competition_no:2d}/{heat_no:2d}/{lane_no} {discipline}' + '\n'
+        result += fr'[{section_no}]  {competition_no:2d}/{heat_no:2d}/{lane_no} {discipline} ({time})' + '\n'
     else:
         pass
     
@@ -192,7 +193,7 @@ def _starts_begin(file_type: FileType) -> str:
     """
     result = ''
     if file_type == FileType.MARKDOWN:
-        result += '*Nr. Wk/ L/B Strecke [Abschnit]*\n\n'
+        result += '*Nr. Wk/ L/B Strecke (_Meldezeit_) [Abschnit]*\n\n'
     elif file_type == FileType.HTML:
         result += fr'<div class="card-body">' + '\n'
         result += fr'  <table class="table table-bordered table-striped table-fixed">' + '\n'
@@ -203,6 +204,7 @@ def _starts_begin(file_type: FileType) -> str:
         result += fr'        <th scope="col" class="text-center" style="width: 50px;">L</th>' + '\n'
         result += fr'        <th scope="col" class="text-center" style="width: 50px;">B</th>' + '\n'
         result += fr'        <th scope="col" class="text-left" style="width: 200px;">Discipline</th>' + '\n'
+        result += fr'        <th scope="col" class="text-center" style="width: 200px;">Meldezeit</th>' + '\n'
         result += fr'        <th scope="col" class="text-center" style="width: 80px;">Abschnit</th>' + '\n'
         result += fr'      </tr>' + '\n'
         result += fr'    </thead>' + '\n'
@@ -278,8 +280,14 @@ def club_to_file(file_name: str, club: Club, file_type: FileType = FileType.NONE
         # loop over every competition of the athlete starts
         for no, lane in enumerate(athlete.lanes, start=1):
             competition = lane.heat.competition
+            # Create competition string
+            if competition.is_relay():
+                com_str = fr' {competition.repetition}x{competition.distance:3d}m {competition.discipline.ljust(len("Schmetterling"))}'
+            else:
+                com_str = fr'{competition.distance:4d}m {competition.discipline.ljust(len("Schmetterling"))}'
+            # Generate output
             output += _starts_entry(competition.section.no, competition.no, lane.heat.no, lane.no,
-                                    fr'{competition.distance:4d}m {competition.discipline}', file_type, no)
+                                    com_str, lane.time_str, file_type, no)
         # Footer of start
         output += _starts_end(file_type)
     # Write to output
