@@ -42,7 +42,7 @@ def debug_func():
         
         PDFOperations.highlight_pdf(value[0], out[:-4] + '_marked.pdf',
                                     coll.club_by_name('SV Georgsmarienhütte').occurrence,
-                                    list(coll.config.colors.rgb['grey_75']),
+                                    coll.config.colors.rgb['grey_75'],
                                     pdf_obj.text_x_range[0], pdf_obj.text_x_range[1], 1)
 
         # store collection and borders
