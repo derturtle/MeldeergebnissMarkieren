@@ -35,7 +35,9 @@ def _file_header(file_type: FileType, title: str = '') -> str:
         result += fr'    <title>{title}</title>' + '\n'
         result += _add_bootstrap()
         result += fr'  </head>' + '\n'
-        result += fr'  <body class="container py-5">' + '\n'
+        result += fr'  <body class="py-5">' + '\n'
+        result += fr'    <main class="flex-shrink-0">' + '\n'
+        result += fr'      <div class="container">' + '\n'
     return result
 
 
@@ -78,8 +80,21 @@ def _file_footer(file_type: FileType) -> str:
     """
     result: str = ''
     if file_type == FileType.HTML:
-        result += fr'  </body>' + '\n'
-        result += fr'</html>' + '\n'
+        result += f'      </div>' + '\n'
+        result += f'    </main>' + '\n'
+        result += f'    <footer class="footer fixed-bottom mt-auto py-3 bg-body-tertiary">' + '\n'
+        result += f'      <div class="container text-center">' + '\n'
+        result += f'       <span class="text-muted">Erstellt mit <a target="_blank" rel="noopener noreferrer" href="https://github.com/derturtle/MeldeergebnissMarkieren">highlightClub</a></span>' + '\n'
+        result += f'      </div>' + '\n'
+        result += f'    </footer>' + '\n'
+        result += f'  </body>' + '\n'
+        result += f'</html>' + '\n'
+    elif file_type == FileType.MARKDOWN:
+        result += '---\n'
+        result += 'Erstellt mit [highlight Club](https://github.com/derturtle/MeldeergebnissMarkieren)\n'
+    elif file_type == FileType.TEXT:
+        result += '----------\n'
+        result += 'Erstellt mit "highlight Club" (https://github.com/derturtle/MeldeergebnissMarkieren)\n'
     return result
 
 
