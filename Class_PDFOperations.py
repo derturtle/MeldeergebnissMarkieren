@@ -7,14 +7,66 @@ from Class_Competition_Objects import SpecialCollection, Association, Section, J
 
 
 class PDFOperations:
+    """
+    Does the changes at the pdf.
+    
+    Attributes:
+    -----------
+    text_x_range: tuple
+        Return the x_min and x_max of the pdf (left and right border)
+    collection: SpecialCollection
+        Returns the collected Data from the PDF
+
+    Methods:
+    --------
+    read_pdf
+        Reads the pdf file and collect data
+    highlight_pdf
+        Add rects behind the Text to PDF by occurrences list
+    highlight_pdf_clubs
+        Add rects behind the text to PDF by club occurrence
+    """
     class _ReadPDF:
+        """
+        Class for reading the PDF (internally)
+        
+        Attributes:
+        -----------
+        pages: list
+            A list of all pages
+        index: int
+            The actual index of the page
+            
+        Methods:
+        --------
+        next_page:
+            Returns the next page object
+        next_textpage:
+            Returns the next page as text object
+        get_page:
+            Returns the actual page object
+        get_textpage:
+            Returns the actual page as text object
+        find_next:
+            Find the next occurrence of a string from the actual page
+        """
         
         def __init__(self, doc):
+            """
+            Initializes a new _ReadPDF instance.
+            
+            :param doc: The pdf object as pymupdf object
+            """
             self.pages: list = list(doc.pages())
             self.index: int = -1
             self._last_data = {}
         
         def next_page(self):
+            """
+            Return the next page
+            
+            :return: Next page object
+            """
             if 0 <= self.index + 1 < len(self.pages):
                 self.index += 1
                 return self.pages[self.index]
@@ -22,12 +74,22 @@ class PDFOperations:
                 return None
         
         def next_textpage(self):
+            """
+            Return the next page as textpage
+
+            :return: Next textpage object
+            """
             page = self.next_page()
             if page:
                 return page.get_textpage()
             return page
         
         def get_page(self):
+            """
+            Return the actual page
+
+            :return: Actual page object
+            """
             if 0 <= self.index < len(self.pages):
                 return self.pages[self.index]
             elif self.index == -1:
@@ -35,12 +97,25 @@ class PDFOperations:
             return None
         
         def get_textpage(self):
+            """
+            Return the actual page as textpage
+
+            :return: Actual textpage object
+            """
             page = self.get_page()
             if page:
                 return page.get_textpage()
             return page
         
+        # todo: This function could be extended that it starts by a defined page
         def find_next(self, text: str, header: float = -1000000.0) -> tuple:
+            """
+            Find the next occurrence of the text
+            
+            :param text: String to be found
+            :param header: Y-Pos, everything greater this value will not be searched and returned pe page
+            :return: Match, Values to the Match, actual (page-) index
+            """
             
             def store_data(data: dict, y_key: float, pdf_obj: PDFText) -> float:
                 """ Stores data into a different dictionary
@@ -122,7 +197,10 @@ class PDFOperations:
                 # found nothing
                 return [], {}, self.index
     
-    def __init__(self, pdf_file: str = ''):
+    def __init__(self):
+        """
+        Initializes a new PDFOperations instance.
+        """
         # self._rd_index : int = 0
         self._header_pos = 0.0
         self._text_x_min: int = -1
@@ -132,13 +210,29 @@ class PDFOperations:
     
     @property
     def text_x_range(self) -> tuple:
+        """
+        Return the x_min and x_max of the pdf (left and right border)
+        
+        :return: x_min, x_max
+        """
         return self._text_x_min, self._text_x_max
     
     @property
     def collection(self):
+        """
+        Returns the collected Data from the PDF
+        
+        :return: A collection of data from the pdf
+        """
         return self._collection
     
     def read_pdf(self, pdf_file: str) -> bool:
+        """
+        Read the pdf file and analyse it
+        
+        :param pdf_file: File to be read
+        :return: Successfully (True) or not
+        """
         
         # ---- File checks -----
         # use full path
@@ -222,7 +316,7 @@ class PDFOperations:
     @staticmethod
     def highlight_pdf(input_pdf: str, output_pdf: str, occurrences: list[PDFText], color: [list, tuple],
                       start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
-        """ Add annotations to PDF by occurrences list
+        """ Add rects behind the Text to PDF by occurrences list
         :type input_pdf: str
         :param input_pdf: Input pdf file
         :type output_pdf: str
@@ -270,7 +364,7 @@ class PDFOperations:
     @staticmethod
     def highlight_pdf_clubs(input_pdf: str, output_pdf: str, clubs: list[Club], colors: list[tuple],
                             start_pos: [int, float] = int(7), end_pos: [int, float] = int(95), offset_px: int = 1):
-        """ Add annotations to PDF by club occurence
+        """ Add rects behind the text to PDF by club occurrence
         :type input_pdf: str
         :param input_pdf: Input pdf file
         :type output_pdf: str
@@ -325,7 +419,20 @@ class PDFOperations:
     @staticmethod
     def _add_rects(occurrences: list, pages: list, color: list, start_px: float, end_px: float, offset_px: float,
                    radius: float):
+        """ Add a rectangle over the page beyond the Text
+        :param occurrences: List of occurrence where the rect should be drawn
+        :param pages: List of Pages in which the occurrence should be
+        :param color: Color of the rectangle
+        :param start_px: Start position of the rectangle
+        :param end_px: End position of the rectangle
+        :param offset_px: Offset in px, how many px the rect should be bigger than the text
+        :param radius: The radius of the coners of the rectangle
+        """
         for obj in occurrences:
+            # If no page is set
+            if obj.page_no <= 0:
+                continue
+            # Get page
             page = pages[obj.page_no - 1]
             
             # Unpack the bounding box coordinates
@@ -397,6 +504,9 @@ class PDFOperations:
             raise TypeError('Only float or int are allowed')
     
     def _analyse_result_report(self, page_dict: dict):
+        """ Analysis the result report in the pdf
+        :param page_dict: Objects in the pages as dictionary
+        """
         
         # ----- Create variables
         # Variable indicates if associations (0) should be found or clubs (1)
@@ -464,11 +574,12 @@ class PDFOperations:
         for i, starts in enumerate(self._collection.clubs[0].starts_by_segments, start=1):
             # Create Segments
             Section(i)
-        
-        pass
     
     def _analyse_judging_panel(self, page_dict: dict, section: Section):
-        
+        """ Analysis the judging panel in the pdf
+        :param page_dict: Objects in the pages as dictionary
+        :param section: Section object
+        """
         # Get first entry
         header = page_dict[list(page_dict.keys())[0]]
         
@@ -498,6 +609,11 @@ class PDFOperations:
         pass
     
     def _analyse_sequenz(self, page_dict: dict, section: Section) -> dict:
+        """ Analysis the sequenz of competitions of one section
+        :param page_dict: Objects in the pages as dictionary
+        :param section: Section object
+        :return: Everything which is not a competition
+        """
         res_dict: dict = {}
         for key, objs in page_dict.items():
             line_text = ' '.join([obj.text for obj in objs])
@@ -511,7 +627,12 @@ class PDFOperations:
         return res_dict
     
     def _analyse_competition(self, page_dict: dict, competition: Competition, additional_values=None):
-        
+        """ Analyse a single competition
+        :param page_dict: Objects in the pages as dictionary
+        :param competition: The competition to be analysed
+        :param additional_values: In case there are additional values
+        """
+        # Constantes
         LANE_INDEX: int = 0
         NAME_INDEX: int = 1
         YEAR_INDEX: int = 2
@@ -519,6 +640,10 @@ class PDFOperations:
         TIME_INDEX: int = 3
         
         def extract_year(pdf_obj: PDFText) -> Year:
+            """ Extract a year
+            :param pdf_obj: PDFText which includes the year nummer
+            :return: The Year object
+            """
             # generate year
             year_str = pdf_obj.text
             try:
@@ -545,6 +670,12 @@ class PDFOperations:
             return result_year
         
         def extract_athlete(pdf_obj: PDFText, a_club: Club, a_year: Year) -> Athlete:
+            """ Extract an athlete
+            :param pdf_obj: PDFText which includes the name of the athlete
+            :param a_club: A Club object where the athlete belongs to
+            :param a_year: The athletes ags as Year object
+            :return: The Athlete object
+            """
             # ---- Create athlete -----
             a_name = pdf_obj.text
             # In case of relay on real name is there
@@ -658,6 +789,12 @@ class PDFOperations:
             heat_zero.remove()
     
     def _create_table_list(self, page_dict: dict, header: list, stop_cond: str) -> list:
+        """ Creates from objects inn the pages a table to be analysed
+        :param page_dict: Objects in the pages as dictionary
+        :param header: List of objects which represents the header
+        :param stop_cond: Stop condition, if match end function
+        :return: table as list to be analysed
+        """
         result: list = []
         
         # ----- Generate end points
