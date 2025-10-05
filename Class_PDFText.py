@@ -209,11 +209,11 @@ class PDFTextCombined(PDFText):
             else:
                 pdftext = PDFText.combine(value, page_no)
                 PDFText.__init__(self, pdftext.value, page_no)
-                for obj in self.value:
+                for obj in value:
                     if type(obj) is tuple and len(obj) > 5:
                         self.objects.append(PDFText(obj, page_no))
                     elif type(PDFText):
-                        self.objects.append(PDFText)
+                        self.objects.append(obj)
         else:
             raise ValueError(f'Wrong value type {value}')
     
