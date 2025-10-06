@@ -206,6 +206,7 @@ class PDFOperations:
         self._text_x_min: int = -1
         self._text_x_max: int = -1
         self._collection = None
+        self._pdf_values = None
         pass
     
     @property
@@ -893,7 +894,7 @@ class PDFOperations:
         return club
 
     @staticmethod
-    def add_watermark(pdf_file: str, collection: SpecialCollection, text_range: tuple):
+    def add_product_info(pdf_file: str, collection: SpecialCollection):
         
         # ---- File checks -----
         # use full path
@@ -902,32 +903,62 @@ class PDFOperations:
         if not os.path.exists(pdf_file):
             return None
         
-        last_lowest: float = 0.0
-        lowest_point: float = 0.0
-        
-        for athlete in collection.athletes:
-            for obj in athlete.occurrence:
-                if obj.y > lowest_point:
-                    # Store only if size is mor than 8 px
-                    if (obj.y - lowest_point) >= 8.0:
-                        last_lowest = lowest_point
-                    lowest_point = obj.y
-        
-        diff = (lowest_point - last_lowest)
-        text_point = lowest_point + 2*diff
-        start_page = collection.clubs[0].occurrence[0].page_no
-        
+        # Try to get start page (min. 10 entries e.g. only judges are there)
+        start_page = 0
+        for c in collection.clubs:
+            if len(c.occurrence) > 10:
+                start_page = c.occurrence[0].page_no
+                break
+
+        # Open PDF and create a list of valid pages
         doc = pymupdf.open(pdf_file)
         pages = list(doc.pages())[start_page-1:]
         
+        # ---- Check for drawing e.g. line before bottom
+        draws = []
+        # check in first four pages of same drawings
+        for i in range(4):
+            draws.append([])
+            for drawing in pages[i].get_drawings():
+                if drawing['rect'].y0 > 750.0 and drawing['rect'].y0 == drawing['rect'].y1:
+                    draws[i].append(drawing['rect'])
+                    
+        lengths = [len(x) for x in draws]
+        index = lengths.index(min(lengths))
+        
+        check = draws.pop(index)
+        
+        j=0
+        while j < len(check):
+            found = True
+            for entries in draws:
+                if not check[j] in entries:
+                    found = False
+                    break
+            
+            if not found:
+                check.pop(j)
+            else:
+                j+=1
+        
+        # ----- Check if there is a line
+        if check:
+            y_pos = check[0].y0 - 10
+        else:
+            y_pos = pages[0].mediabox.y1 - 20
+            pass
+            
         # Slightly enlarge the rect to make it appear "behind" text
-        rect = pymupdf.Rect(text_range[0], text_point, text_range[1], text_point + diff)
+        rect = pymupdf.Rect(pages[0].mediabox.x0, y_pos, pages[0].mediabox.x1, y_pos + 15)
         
         for page in pages:
             #page.insert_text([text_range[1]-text_range[0], text_point], f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, )
-            page.insert_textbox(rect, f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, align=TEXT_ALIGN_CENTER, overlay=True, color=[0,0,0])
+            page.insert_textbox(rect, f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, align=pymupdf.TEXT_ALIGN_CENTER, overlay=False, color=[0,0,0])
         
         doc.saveIncr()
+        
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Add product info to {os.path.basename(pdf_file)}')
+        pass
         
         
         

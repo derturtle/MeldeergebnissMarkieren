@@ -49,7 +49,7 @@ def debug_func():
                                           [coll.config.colors.rgb['grey_75']],
                                           pdf_obj.text_x_range[0], pdf_obj.text_x_range[1], 1)
         
-        PDFOperations.add_watermark(out[:-4] + '_marked.pdf', coll, pdf_obj.text_x_range)
+        PDFOperations.add_product_info(out[:-4] + '_marked.pdf', coll)
 
         # store collection and borders
         tests[key][1] = pdf_obj.text_x_range
