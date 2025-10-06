@@ -891,3 +891,43 @@ class PDFOperations:
         # Add PDF object as occurrence to club
         club.add_occurrence(text_obj)
         return club
+
+    @staticmethod
+    def add_watermark(pdf_file: str, collection: SpecialCollection, text_range: tuple):
+        
+        # ---- File checks -----
+        # use full path
+        pdf_file = os.path.abspath(pdf_file)
+        # Check if file exist
+        if not os.path.exists(pdf_file):
+            return None
+        
+        last_lowest: float = 0.0
+        lowest_point: float = 0.0
+        
+        for athlete in collection.athletes:
+            for obj in athlete.occurrence:
+                if obj.y > lowest_point:
+                    # Store only if size is mor than 8 px
+                    if (obj.y - lowest_point) >= 8.0:
+                        last_lowest = lowest_point
+                    lowest_point = obj.y
+        
+        diff = (lowest_point - last_lowest)
+        text_point = lowest_point + 2*diff
+        start_page = collection.clubs[0].occurrence[0].page_no
+        
+        doc = pymupdf.open(pdf_file)
+        pages = list(doc.pages())[start_page-1:]
+        
+        # Slightly enlarge the rect to make it appear "behind" text
+        rect = pymupdf.Rect(text_range[0], text_point, text_range[1], text_point + diff)
+        
+        for page in pages:
+            #page.insert_text([text_range[1]-text_range[0], text_point], f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, )
+            page.insert_textbox(rect, f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, align=TEXT_ALIGN_CENTER, overlay=True, color=[0,0,0])
+        
+        doc.saveIncr()
+        
+        
+        

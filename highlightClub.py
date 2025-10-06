@@ -40,10 +40,16 @@ def debug_func():
         club_to_file(out[:-4]+'.html', coll.club_by_name('SV Georgsmarienhütte'), FileType.HTML)
         club_to_file(out[:-4]+'.txt', coll.club_by_name('SV Georgsmarienhütte'), FileType.TEXT)
         
-        PDFOperations.highlight_pdf(value[0], out[:-4] + '_marked.pdf',
-                                    coll.club_by_name('SV Georgsmarienhütte').occurrence,
-                                    coll.config.colors.rgb['grey_75'],
-                                    pdf_obj.text_x_range[0], pdf_obj.text_x_range[1], 1)
+        # PDFOperations.highlight_pdf(value[0], out[:-4] + '_marked.pdf',
+        #                             coll.club_by_name('SV Georgsmarienhütte').occurrence,
+        #                             coll.config.colors.rgb['grey_75'],
+        #                             pdf_obj.text_x_range[0], pdf_obj.text_x_range[1], 1)
+        PDFOperations.highlight_pdf_clubs(value[0], out[:-4] + '_marked.pdf',
+                                          [coll.club_by_name('SV Georgsmarienhütte')],
+                                          [coll.config.colors.rgb['grey_75']],
+                                          pdf_obj.text_x_range[0], pdf_obj.text_x_range[1], 1)
+        
+        PDFOperations.add_watermark(out[:-4] + '_marked.pdf', coll, pdf_obj.text_x_range)
 
         # store collection and borders
         tests[key][1] = pdf_obj.text_x_range
