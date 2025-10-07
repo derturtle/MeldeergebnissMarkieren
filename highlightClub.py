@@ -10,21 +10,23 @@ from Class_TextInterface import TextInterface
 MAIN_DEBUG: bool = False
 
 def debug_func():
+    tst_path: str = './TestFiles/in'
     tests: dict = {
-        "2024_HF":  ['./TestFiles/2024_HF.pdf', 89, None],
-        "2024_TSG": ['./TestFiles/2024_TSG.pdf', 76, None],
-        "2024_Nikolaus": ['./TestFiles/2024_Nikolaus.pdf', 39, None],
-        "2025_TSG": ['./TestFiles/2025_TSG.pdf', 90, None],
-        "2025_KMS": ['./TestFiles/2025_KMS.pdf', 41, None],
-        "2025_BadEssen": ['./TestFiles/2025_BadEssen.pdf', 20, None],
-        "2025_Rheine": ['./TestFiles//2025_Rheine_SVG.pdf', 86, None],
-        "2025_TSWF": ['./TestFiles//2025_TWSF.pdf', 35, None],  # last page was not scanned
+        "2024_HF":  [f'{tst_path}/2024_HF.pdf', 89, None],
+        "2024_Nikolaus": [f'{tst_path}/2024_Nikolaus.pdf', 39, None],
+        "2024_TSG": [f'{tst_path}/2024_TSG.pdf', 76, None],
+        "2025_TSG": [f'{tst_path}/2025_TSG.pdf', 90, None],
+        "2025_KMS": [f'{tst_path}/2025_KMS.pdf', 41, None],
+        "2025_BadEssen": [f'{tst_path}/2025_BadEssen.pdf', 20, None],
+        "2025_Rheine": [f'{tst_path}/2025_Rheine_SVG.pdf', 86, None],
+        "2025_TSWF": [f'{tst_path}/2025_TWSF.pdf', 35, None],  # last page was not scanned
+        "2025_Wagenfeld": [f'{tst_path}/2025_Wagenfeld.pdf', 29, None],  # last page was not scanned
     }
     
     for key, value in tests.items():
         base = os.path.dirname(value[0])
         name = os.path.basename(value[0])
-        out = base + '/out/' + name
+        out = base + '/../out/' + name
         print(f'[DEBUG] Processing {key}')
 
         # Reading pdf
