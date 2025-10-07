@@ -801,7 +801,8 @@ class PDFOperations:
         # ----- Generate end points
         pts_end: list = [0]
         for entry in header[1:]:
-            pts_end.append(entry.x)
+            # Round (down) to int - there should a leat a little bit blanc between signs
+            pts_end.append(int(entry.x))
         pts_end.append(100000)
         
         # ----- Loop over dictionary
