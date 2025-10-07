@@ -949,16 +949,55 @@ class PDFOperations:
             y_pos = pages[0].mediabox.y1 - 20
             pass
             
-        # Slightly enlarge the rect to make it appear "behind" text
-        rect = pymupdf.Rect(pages[0].mediabox.x0, y_pos, pages[0].mediabox.x1, y_pos + 15)
+        # ----- Set text properties
+        # Create font object to calculate length
+        font = pymupdf.Font('helv')
+        font_size = 6
         
-        for page in pages:
-            #page.insert_text([text_range[1]-text_range[0], text_point], f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, )
-            page.insert_textbox(rect, f'Markiert mit "highlightClub" (https://github.com/derturtle/MeldeergebnissMarkieren)', fontsize=6, align=pymupdf.TEXT_ALIGN_CENTER, overlay=False, color=[0,0,0])
+        # Create link
+        link = {
+            "kind": pymupdf.LINK_URI,
+            "uri": f'https://github.com/derturtle/MeldeergebnissMarkieren'
+            }
+        # Create text with link
+        text = f'Markiert mit "highlightClub" - {link["uri"]}'
+
+        # Factor to place the correct Text box
+        factor: float = 1.5
+        # Get text length
+        text_length = font.text_length(text, font_size)
+
+        # Create rect coordinates
+        text_x0 = ((pages[0].mediabox.x1 - pages[0].mediabox.x0) / 2) - (text_length / 2)
+        text_x1 = text_x0 + text_length
+        text_y0 = y_pos
+        text_y1 = text_y0 + (font_size*factor)
+        # Create rect
+        text_rect = pymupdf.Rect(text_x0, text_y0, text_x1, text_y1)
         
-        doc.saveIncr()
+        while pages[0].insert_textbox(text_rect, text, fontsize=font_size, overlay=False, color=[0, 0, 0] ) < 0:
+            # Increase factor
+            factor += 0.1
+            # Check abort condition
+            if factor > 3:
+                break
+            # Create new rect
+            text_rect = pymupdf.Rect(text_x0, text_y0, text_x1, text_y0 + (font_size*factor))
+            
+        # Create link rect (make it a little bit higher)
+        link["from"] = pymupdf.Rect(text_rect.x0, text_rect.y0-5, text_rect.x1, text_rect.y1+5)
+        pages[0].insert_link(link)
         
-        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Add product info to {os.path.basename(pdf_file)}')
+        if factor < 3:
+            for page in pages[1:]:
+                page.insert_textbox(text_rect, text, fontsize=font_size, overlay=False, color=[0, 0, 0])
+                page.insert_link(link)
+            
+            doc.saveIncr()
+            
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Add product info to {os.path.basename(pdf_file)}')
+        else:
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] FAILED add product info to {os.path.basename(pdf_file)}')
         pass
         
         
