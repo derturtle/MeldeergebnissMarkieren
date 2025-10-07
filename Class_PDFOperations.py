@@ -985,7 +985,7 @@ class PDFOperations:
             text_rect = pymupdf.Rect(text_x0, text_y0, text_x1, text_y0 + (font_size*factor))
             
         # Create link rect (make it a little bit higher)
-        link["from"] = pymupdf.Rect(text_rect.x0, text_rect.y0-5, text_rect.x1, text_rect.y1+5)
+        link["from"] = pymupdf.Rect(text_rect.x1 - font.text_length(link['uri'], 6), text_rect.y0-5, text_rect.x1, text_rect.y1+5)
         pages[0].insert_link(link)
         
         if factor < 3:
