@@ -135,6 +135,7 @@ def run_parser():
         borders[1] = args.end
     
     PDFOperations.highlight_pdf(pdf_file, output, club.occurrence, color, borders[0], borders[1], args.offset)
+    PDFOperations.add_product_info(output, collection)
     club_to_file(output[:-4] + '.html', club)
 
 # Press the green button in the gutter to run the script.

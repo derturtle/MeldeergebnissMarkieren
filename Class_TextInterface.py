@@ -1042,6 +1042,7 @@ class TextInterface:
                 # Highlight pdf
                 PDFOperations.highlight_pdf(self._pdf_file, output_file, club.occurrence, color,
                                             self._border[0], self._border[1], int(self.config.default['offset']))
+                PDFOperations.add_product_info(output_file, self._collection)
                 # Create other output
                 club_to_file(output_file[:-4] + '.md', club, FileType.MARKDOWN)
                 club_to_file(output_file[:-4] + '.html', club, FileType.HTML)
@@ -1075,6 +1076,7 @@ class TextInterface:
             # Highlight pdf
             PDFOperations.highlight_pdf_clubs(self._pdf_file, output_file, clubs, colors,
                                               self._border[0], self._border[1], int(self.config.default['offset']))
+            PDFOperations.add_product_info(output_file, self._collection)
         # Store path in config
         if self._default_path != os.path.dirname(self._pdf_file):
             self.config.default['search_path'] = os.path.dirname(self._pdf_file)
