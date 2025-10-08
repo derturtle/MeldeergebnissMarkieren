@@ -261,7 +261,7 @@ class PDFOperations:
         if findings:
             self._header_pos = findings[0].y - 1.0
         
-        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Entry result')
+        print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Entry result')
         # get competition information
         findings, page_dict, _ = read_obj.find_next(self._pdf_values.judging_panel, self._header_pos)
         self._analyse_result_report(page_dict)
@@ -272,13 +272,13 @@ class PDFOperations:
         for section_no, section in enumerate(self._collection.sections, start=1):
             
             print(
-                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Judging panel - Section {section_no}')
+                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Judging panel - Section {section_no}')
             # ----- Get Judging panel
             findings, page_dict, _ = read_obj.find_next(self._pdf_values.competition_sequenz, self._header_pos)
             self._analyse_judging_panel(page_dict, section)
             
             print(
-                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition sequenz - Section {section_no}')
+                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Competition sequenz - Section {section_no}')
             # ----- Get competition sequenz (find by "heat 1")
             findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.heat} 1', self._header_pos)
             left_over = self._analyse_sequenz(page_dict, section)
@@ -289,7 +289,7 @@ class PDFOperations:
             # loop over all without the last one
             for i in range(0, len(competitions) - 1):
                 print(
-                    fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {str(competitions[i])}')
+                    fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Competition {str(competitions[i])}')
                 # Analyse competition
                 findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.competition} {competitions[i + 1].no}',
                                                             self._header_pos)
@@ -307,7 +307,7 @@ class PDFOperations:
                 comp_index += len(competitions)
             
             print(
-                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Processing: Competition {str(competitions[-1])}')
+                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Competition {str(competitions[-1])}')
             # Analyse last completion of section (or document)
             findings, page_dict, _ = read_obj.find_next(find_str, self._header_pos)
             self._analyse_competition(page_dict, competitions[-1])
