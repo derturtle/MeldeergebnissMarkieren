@@ -70,31 +70,33 @@ class MenuStdout:
         """ Function writes to the screen
         :param text: Test to write
         """
-        # If newline in text split line and loop over split
-        for split in text.split('\n'):
-            # In case it is not empty
-            if split:
-                # Add text and clear all other characters form line
-                split = split + ' ' * (self.stdscr.getmaxyx()[1] - len(split))
-                # Check if index is max
-                if self._index == self._max_lines:
-                    # remove first from buffer and add new string to it
-                    self._buffer.remove(self._buffer[0])
-                    self._buffer.append(split)
-                else:
-                    # Add to buffer and incremnet index
-                    self._buffer[self._index] = split
-                    self._index += 1
-        # loop over buffer an write to screen
-        for row, text in enumerate(self._buffer, start=self.start_row):
-            self.stdscr.addstr(row, 0, text)
+        max_y, max_x = self.stdscr.getmaxyx()
+
+        # Check lines
+        if (self.max_lines + self.start_row) >= max_y:
+            self._max_lines = max_y - self.start_row
+        # Only add new text if lines > 0
+        if self.max_lines > 0:
+            # If newline in text split line and loop over split
+            for part in text.split('\n'):
+                # In case it is not empty
+                if part:
+                    # Add text and clear all other characters form line
+                    part = part + ' ' * (max_x - len(part))
+                    # Check if index is max
+                    while len(self._buffer) >= self.max_lines:
+                        self._buffer.remove(self._buffer[0])
+                    # Add to buffer
+                    self._buffer.append(part)
+            # loop over buffer and write to screen
+            for row, entry in enumerate(self._buffer, start=self.start_row):
+                self.stdscr.addstr(row, 0, entry[:max_x-1])
         # update screen
         self.stdscr.refresh()
         
     def flush(self):
         """ Clear write buffer """
-        self._index = 0
-        self._buffer = [''] * self._max_lines
+        self._buffer = []
         
 class Key:
     """ Represents a Key class """
