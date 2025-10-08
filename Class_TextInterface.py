@@ -45,7 +45,6 @@ class MenuStdout:
         :param start_row: Row to start writing
         :param max_lines: No of used lines
         """
-        self._index: int = 0
         self._buffer: list = []
         self._max_lines: int = 0
         
@@ -754,7 +753,11 @@ class TextInterface:
         # Read pdf-file
         pdf_obj = PDFOperations()
         # Read pdf
-        if not pdf_obj.read_pdf(self._pdf_file):
+        read_result = pdf_obj.read_pdf(self._pdf_file)
+        # Reset stdout
+        sys.stdout = sys.__stdout__
+        # Check result
+        if not read_result:
             # Clear screen again
             self.stdscr.clear()
             # No valid data found
