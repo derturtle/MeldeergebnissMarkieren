@@ -524,8 +524,12 @@ class PDFOperations:
         keys = list(page_dict.keys())
         
         # ----- Find club index
+        key_no: int = -1
         # Get entry len and club position
-        for key in keys:
+        while not header_line and key_no < len(keys):
+            # Create key and increase count
+            key_no += 1
+            key = keys[key_no]
             # Loop over list
             for i in range(len(page_dict[key])):
                 if page_dict[key][i].text == pdf_values.club:
@@ -833,7 +837,7 @@ class PDFOperations:
                         tmp[i] = None
                 
                 # if tmp is not text of position
-                if tmp[0].text != header[0].text:
+                if tmp[0] and tmp[0].text != header[0].text:
                     result.append(tmp)
         return result
     
@@ -865,8 +869,15 @@ class PDFOperations:
         participants = [int(str(text_obj_line[i + 1]).replace('/', '')),
                         int(str(text_obj_line[i + 2]).replace('/', ''))]
         club.participants = Participants(participants)
+        
+        # Check for only one Segment -> no "Gesamt"
+        if i + 3 == len(text_obj_line) - 2:
+            end = len(text_obj_line)
+        else:
+            end = len(text_obj_line) -2
+            
         # Create segments
-        for j in range(i + 3, len(text_obj_line) - 2, 2):
+        for j in range(i + 3, end, 2):
             tmp = [int(str(text_obj_line[j]).replace('/', '')), int(str(text_obj_line[j + 1]).replace('/', ''))]
             club.starts_by_segments.append(Starts(tmp))
         
