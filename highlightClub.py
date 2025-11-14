@@ -21,6 +21,8 @@ def debug_func():
         "2025_Rheine": [f'{tst_path}/2025_Rheine_SVG.pdf', 86, None],
         "2025_TSWF": [f'{tst_path}/2025_TWSF.pdf', 35, None],  # last page was not scanned
         "2025_Wagenfeld": [f'{tst_path}/2025_Wagenfeld.pdf', 29, None],  # last page was not scanned
+        "2025_Steinhagen": [f'{tst_path}/2025_Steinhagen.pdf', 13, None], # Only one Section!!!
+        "2025_Minden":  [f'{tst_path}/2025_Minden.pdf', 32, None], # No Judging Panel
     }
     
     for key, value in tests.items():

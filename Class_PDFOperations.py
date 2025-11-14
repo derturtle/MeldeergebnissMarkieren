@@ -252,6 +252,16 @@ class PDFOperations:
         self._pdf_values = self._collection.config.pdf_values
         
         doc = pymupdf.open(pdf_file)
+
+        # ----- Check for Judging panel -----
+        judging_panel: bool = False
+        for page in doc.pages():
+            if page.get_textpage().search(self._pdf_values.judging_panel):
+                judging_panel = True
+                break
+                
+        if not judging_panel:
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Debug: No judging panel found')
         
         # ----- Work with reading object -----
         read_obj = self._ReadPDF(doc)
@@ -263,7 +273,10 @@ class PDFOperations:
         
         print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Entry result')
         # get competition information
-        findings, page_dict, _ = read_obj.find_next(self._pdf_values.judging_panel, self._header_pos)
+        if judging_panel:
+            findings, page_dict, _ = read_obj.find_next(self._pdf_values.judging_panel, self._header_pos)
+        else:
+            findings, page_dict, _ = read_obj.find_next(f'{self._pdf_values.segment} 1', self._header_pos)
         self._analyse_result_report(page_dict)
         
         comp_index = 0
@@ -271,11 +284,13 @@ class PDFOperations:
         # ---- Loop over Document start with Judging panel ----
         for section_no, section in enumerate(self._collection.sections, start=1):
             
-            print(
-                fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Judging panel - Section {section_no}')
-            # ----- Get Judging panel
-            findings, page_dict, _ = read_obj.find_next(self._pdf_values.competition_sequenz, self._header_pos)
-            self._analyse_judging_panel(page_dict, section)
+            if judging_panel:
+                print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Judging panel - Section {section_no}')
+                # ----- Get Judging panel
+                findings, page_dict, _ = read_obj.find_next(self._pdf_values.competition_sequenz, self._header_pos)
+                self._analyse_judging_panel(page_dict, section)
+            else:
+                findings, page_dict, _ = read_obj.find_next(self._pdf_values.competition_sequenz, self._header_pos)
             
             print(
                 fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Process: Competition sequenz - Section {section_no}')
@@ -302,7 +317,10 @@ class PDFOperations:
                 find_str = ''
             else:
                 # Next judging panel
-                find_str = self._pdf_values.judging_panel
+                if judging_panel:
+                    find_str = self._pdf_values.judging_panel
+                else:
+                    find_str = f'{self._pdf_values.segment} {section_no+1}'
                 # Set new competition start index
                 comp_index += len(competitions)
             
