@@ -23,6 +23,7 @@ def debug_func():
         "2025_Wagenfeld": [f'{tst_path}/2025_Wagenfeld.pdf', 29, None],  # last page was not scanned
         "2025_Steinhagen": [f'{tst_path}/2025_Steinhagen.pdf', 13, None], # Only one Section!!!
         "2025_Minden":  [f'{tst_path}/2025_Minden.pdf', 32, None], # No Judging Panel
+        "2026_TSG": [f'{tst_path}/2026_TSG.pdf', 32, None],  # First normal competition after a section was a list
     }
     
     for key, value in tests.items():
