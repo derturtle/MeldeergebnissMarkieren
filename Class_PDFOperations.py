@@ -744,84 +744,87 @@ class PDFOperations:
                 header = value
                 break
         
-        if len(header) != 5:
+        if len(header) != 5 and len(header) != 0:
             raise Exception(f"For competition five vales are expected. Found {header}")
-        
-        if additional_values is None:
-            page_list = self._create_table_list(page_dict, header, self._pdf_values.competition)
+        elif len(header) == 0:
+            print(fr'[{datetime.datetime.now().strftime("%H:%M:%S,%f")}] Info: {competition} has no heats')
         else:
-            page_list = self._create_table_list(additional_values, header, self._pdf_values.competition)
-            page_list.extend(self._create_table_list(page_dict, header, self._pdf_values.competition))
-        
-        # Get x min/max of page
-        if self._text_x_min == -1 and page_list:
+            # In case there is a competition analyse it
+            if additional_values is None:
+                page_list = self._create_table_list(page_dict, header, self._pdf_values.competition)
+            else:
+                page_list = self._create_table_list(additional_values, header, self._pdf_values.competition)
+                page_list.extend(self._create_table_list(page_dict, header, self._pdf_values.competition))
+            
+            # Get x min/max of page
+            if self._text_x_min == -1 and page_list:
+                for entry in page_list:
+                    if entry[LANE_INDEX].text.startswith(self._pdf_values.lane):
+                        # Found x min/max
+                        self._text_x_min = entry[LANE_INDEX].x
+                        self._text_x_max = entry[TIME_INDEX + 1].bbox[2]
+                        # Break loop
+                        break
+            
+            # create heat_zero
+            heat_zero = Heat(0)
+            # Still no heat found
+            heat = heat_zero
+            
+            last_lane = 10000
             for entry in page_list:
-                if entry[LANE_INDEX].text.startswith(self._pdf_values.lane):
-                    # Found x min/max
-                    self._text_x_min = entry[LANE_INDEX].x
-                    self._text_x_max = entry[TIME_INDEX + 1].bbox[2]
-                    # Break loop
-                    break
-        
-        # create heat_zero
-        heat_zero = Heat(0)
-        # Still no heat found
-        heat = heat_zero
-        
-        last_lane = 10000
-        for entry in page_list:
-            # Inclusive special treatment for year is short and text is center
-            entry_year = entry.pop(2)
-            # Wrong entry -> should not have none, go to next
-            if None in entry:
-                continue
-            
-            if entry_year is None:
-                if type(entry[YEAR_INDEX]) is PDFTextCombined:
-                    # Create year
-                    year = extract_year(entry[NAME_INDEX][-1])
-                    if year.year != 0:
-                        entry[NAME_INDEX].pop(-1)
+                # Inclusive special treatment for year is short and text is center
+                entry_year = entry.pop(2)
+                # Wrong entry -> should not have none, go to next
+                if None in entry:
+                    continue
+                
+                if entry_year is None:
+                    if type(entry[YEAR_INDEX]) is PDFTextCombined:
+                        # Create year
+                        year = extract_year(entry[NAME_INDEX][-1])
+                        if year.year != 0:
+                            entry[NAME_INDEX].pop(-1)
+                    else:
+                        year = Year(0)
                 else:
-                    year = Year(0)
-            else:
-                # Create year
-                year = extract_year(entry_year)
+                    # Create year
+                    year = extract_year(entry_year)
+                
+                # Create club
+                club = self._generate_club(entry[CLUB_INDEX])
+                # Create athlete
+                athlete = extract_athlete(entry[NAME_INDEX], club, year)
+                # Create time
+                time = datetime.time.fromisoformat(fr'00:{entry[TIME_INDEX].text}')
+                # ----- Create lane -----
+                # Get lane text
+                lane_str = entry[LANE_INDEX].text
+                # Default: lane is not a list entry
+                list_entry = False
+                if self._pdf_values.lane in lane_str:
+                    # Get lane_no
+                    lane_no = int(lane_str.replace(self._pdf_values.lane, '').strip())
+                    # Check for next heat
+                    if lane_no > 0:
+                        if lane_no < last_lane:
+                            # Create new heat
+                            heat = Heat(heat.no + 1, competition)
+                        # Store last lange to create new heat
+                        last_lane = lane_no
+                else:
+                    # Get lane_no
+                    lane_no = int(lane_str.replace('.', '').strip())
+                    # Lane is list entry
+                    list_entry = True
+                
+                lane = Lane(lane_no, time, athlete, heat, list_entry)
             
-            # Create club
-            club = self._generate_club(entry[CLUB_INDEX])
-            # Create athlete
-            athlete = extract_athlete(entry[NAME_INDEX], club, year)
-            # Create time
-            time = datetime.time.fromisoformat(fr'00:{entry[TIME_INDEX].text}')
-            # ----- Create lane -----
-            # Get lane text
-            lane_str = entry[LANE_INDEX].text
-            # Default: lane is not a list entry
-            list_entry = False
-            if self._pdf_values.lane in lane_str:
-                # Get lane_no
-                lane_no = int(lane_str.replace(self._pdf_values.lane, '').strip())
-                # Check for next heat
-                if lane_no > 0:
-                    if lane_no < last_lane:
-                        # Create new heat
-                        heat = Heat(heat.no + 1, competition)
-                    # Store last lange to create new heat
-                    last_lane = lane_no
+            # Ad heat 0 to competition if it has lanes
+            if len(heat_zero.lanes) > 0:
+                heat_zero.competition = competition
             else:
-                # Get lane_no
-                lane_no = int(lane_str.replace('.', '').strip())
-                # Lane is list entry
-                list_entry = True
-            
-            lane = Lane(lane_no, time, athlete, heat, list_entry)
-        
-        # Ad heat 0 to competition if it has lanes
-        if len(heat_zero.lanes) > 0:
-            heat_zero.competition = competition
-        else:
-            heat_zero.remove()
+                heat_zero.remove()
     
     def _create_table_list(self, page_dict: dict, header: list, stop_cond: str) -> list:
         """ Creates from objects inn the pages a table to be analysed
