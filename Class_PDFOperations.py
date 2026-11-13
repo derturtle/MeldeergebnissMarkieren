@@ -813,8 +813,14 @@ class PDFOperations:
                         # Store last lange to create new heat
                         last_lane = lane_no
                 else:
-                    # Get lane_no
-                    lane_no = int(lane_str.replace('.', '').strip())
+                    try:
+                        # Get lane_no
+                        lane_no = int(lane_str.replace('.', '').strip())
+                    except:
+                        print(f'Lane no is no integer: {lane_str}')
+                        print(f'Set lane no to 0')
+                        lane_no = 0
+                        
                     # Lane is list entry
                     list_entry = True
                 
