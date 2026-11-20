@@ -18,6 +18,41 @@ def _add_bootstrap() -> str:
     """
     return '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">\n<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>\n'
 
+def _add_print_style() -> str:
+    """ Add a pinter style for the html file
+    :return: A style tag with the printer style
+    """
+    result: str = ''
+    result += "  <style>\n"
+    result += "/* Compact print layout: A4, swimmers in 2 columns, one table per swimmer */\n"
+    result += "@page { size: A4 portrait; margin: 10mm; }\n"
+    result += "@media print {\n"
+    result += "  body { padding: 0 !important; font-size: 9pt; }\n"
+    result += "  .footer { display: none !important; }\n"
+    result += "  .container { max-width: none; padding: 0; }\n"
+    result += "  h1 { font-size: 14pt; margin: 0 0 2mm !important; }\n"
+    result += "  h2 { font-size: 11pt; margin: 2mm 0 1mm !important; }\n"
+    result += "  h3 { font-size: 9.5pt; margin: 0 0 1mm !important; text-align: left !important; font-weight: 700; }\n"
+    result += "  .row { display: flex; gap: 6mm; margin: 0 0 2mm; }\n"
+    result += "  .row > div { flex: 1; margin: 0 !important; }\n"
+    result += "  .row h3 { text-align: left !important; }\n"
+    result += "  .row ol { padding: 0; margin: 0; }\n"
+    result += "  .row li { padding: 0.5mm 2mm !important; font-size: 8.5pt; }\n"
+    result += "  /* swimmers: two columns, never split a swimmer across columns/pages */\n"
+    result += "  .container { column-count: 2; column-gap: 6mm; }\n"
+    result += "  h1, h2 { column-span: all; }\n"
+    result += "  .row { column-span: all; }\n"
+    result += "  h3 + .card-body { break-before: avoid; }\n"
+    result += "  .card-body { break-inside: avoid; margin-bottom: 3mm; }\n"
+    result += "  h3 { break-after: avoid; }\n"
+    result += "  table { width: 100% !important; margin: 0 !important; table-layout: auto; font-size: 8.5pt; border-collapse: collapse; }\n"
+    result += "  th, td { padding: 0.6mm 1.5mm !important; width: auto !important; border: 0.3pt solid #555 !important; white-space: nowrap; }\n"
+    result += "  th { background: #ddd !important; font-size: 7.5pt; }\n"
+    result += "  tbody tr:nth-child(odd) td { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n"
+    result += "  td.text-left { white-space: pre; font-family: ui-monospace, monospace; font-size: 8pt; }\n"
+    result += "}\n"
+    result += "  </style>\n"
+    return result
 
 def _file_header(file_type: FileType, title: str = '') -> str:
     """ Generates the header of the file
@@ -34,6 +69,7 @@ def _file_header(file_type: FileType, title: str = '') -> str:
         result += fr'    <meta name="viewport" content="width=device-width, initial-scale=1.0">' + '\n'
         result += fr'    <title>{title}</title>' + '\n'
         result += _add_bootstrap()
+        result += _add_print_style()
         result += fr'  </head>' + '\n'
         result += fr'  <body class="py-5">' + '\n'
         result += fr'    <main class="flex-shrink-0">' + '\n'
